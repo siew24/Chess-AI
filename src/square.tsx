@@ -18,7 +18,7 @@ export function Square(props: SquareProps) {
             React.createElement('img',
                 {
                     src: ChessPiece(props.value),
-                    className: (props.value.name.search("Queen") === -1 ? "piece" : "queen-piece")
+                    className: (!props.value.name.includes("Queen") ? "piece" : "queen-piece")
                 })
             :
             null

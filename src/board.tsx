@@ -104,6 +104,7 @@ export class Board extends React.Component<BoardProps, BoardStates> {
         });
 
         this.setState({ board: board });
+        console.log(board);
     }
 
     shouldComponentUpdate(nextProps: BoardProps) {
