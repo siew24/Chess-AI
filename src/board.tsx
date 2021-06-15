@@ -1,23 +1,27 @@
 import React from 'react';
 
-import { Piece } from './piece';
+import { doSomethingHere } from './AI';
 import { Square } from './square';
 
-interface BoardStates {
-    squares: Array<Array<string>>,
-    mousePosition: Array<number>
+interface BoardProps {
+    playerTurn: boolean,
+    triggerAI: Function,
+    onClick: Function
 }
 
-export class Board extends React.Component<{}, BoardStates> {
-    constructor(props: {}) {
+interface BoardStates {
+    board: Array<Array<string>>
+}
+
+export class Board extends React.Component<BoardProps, BoardStates> {
+    constructor(props: BoardProps) {
         super(props);
 
         this.state = {
-            squares: Array<Array<string>>(8).fill([]).map(() => Array<string>(8).fill("")),
-            mousePosition: [0, 0]
+            board: Array<Array<string>>(8).fill([]).map(() => Array<string>(8).fill(""))
         };
 
-        const squares = this.state.squares.slice();
+        const board = this.state.board.slice();
 
         // The general layout of chess pieces
         const layout = [
@@ -27,20 +31,37 @@ export class Board extends React.Component<{}, BoardStates> {
         // Iterate through the layout and intialize both side of the board
         layout.forEach((row, rowIndex) => {
             row.forEach((pieceName, columnIndex) => {
-                squares[0 + rowIndex][columnIndex] = pieceName + " B";
-                squares[7 - rowIndex][columnIndex] = pieceName + " W";
+                board[0 + rowIndex][columnIndex] = pieceName + " B";
+                board[7 - rowIndex][columnIndex] = pieceName + " W";
             })
         });
 
-        this.setState({ squares: squares });
+        this.setState({ board: board });
+    }
+
+    componentDidUpdate(prevProps: BoardProps) {
+        // If previously was the player's turn and now it's the AI's turn
+        if (prevProps.playerTurn !== this.props.playerTurn && !this.props.playerTurn) {
+
+            let board = this.state.board.slice();
+
+            // Use the prop function
+            let newBoard = this.props.triggerAI(board);
+
+            this.setState({ board: newBoard });
+
+        }
     }
 
     renderSquare(i: number, j: number) {
         return React.createElement(
             Square,
             {
-                value: { name: this.state.squares[i][j] },
-                onClick: () => console.log(`Tile Position: ${i}, ${j}`)
+                value: { name: this.state.board[i][j] },
+                onClick: () => {
+                    if (this.props.playerTurn)
+                        this.props.onClick(i, j)
+                }
             },
             null
         );
