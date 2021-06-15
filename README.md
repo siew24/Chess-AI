@@ -1,8 +1,16 @@
-# Getting Started with Create React App
+# Chess AI with React.js
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project used React.js for both the Chess logic and the AI.
 
-## Available Scripts
+## Contributing to the project
+
+Before contributing, take note that this project is done in:
+- Visual Studio Code
+- React.js + TypeScript
+  
+You should learn these technologies and the codebase before proceeding to contribute.
+
+## Steps to run
 
 In the project directory, you can run:
 
@@ -40,7 +48,5 @@ Instead, it will copy all the configuration files and the transitive dependencie
 You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
 
 ## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
 To learn React, check out the [React documentation](https://reactjs.org/).
