@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Piece } from './piece';
+import { ChessPiece, Piece } from './piece';
 
 interface SquareProps {
     value: Piece,
@@ -8,13 +8,25 @@ interface SquareProps {
 }
 
 export function Square(props: SquareProps) {
-    console.log(props.value.imageSource);
-    return React.createElement(
-        'td',
-        {
-            className: "square",
-            onClick: props.onClick
-        },
-        React.createElement('img', { src: props.value.imageSource })
-    );
+    if (props.value.name !== "")
+        return React.createElement(
+            'td',
+            {
+                className: "square",
+                onClick: props.onClick
+            },
+            React.createElement('img',
+                {
+                    src: ChessPiece(props.value),
+                    className: (props.value.name.search("Queen") === -1 ? "piece" : "queen-piece")
+                })
+        );
+    else
+        return React.createElement(
+            'td',
+            {
+                className: "square",
+                onClick: props.onClick
+            }
+        );
 }

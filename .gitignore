@@ -8,6 +8,9 @@
 # testing
 /coverage
 
+# development
+/src/react-app-env.d.ts
+
 # production
 /build
 

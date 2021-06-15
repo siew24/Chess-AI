@@ -1,5 +1,9 @@
 import React from 'react';
 
 export interface Piece {
-    imageSource: string     // The image location of the chess piece
+    name: string     // The image location of the chess piece
+}
+
+export function ChessPiece(name: Piece) {
+    return "assets/" + name.name + ".png";
 }
