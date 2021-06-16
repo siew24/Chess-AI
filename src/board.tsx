@@ -2,65 +2,124 @@ import React from 'react';
 
 import { doSomethingHere } from './AI';
 import { Square } from './square';
+import { Piece } from './piece';
 
 interface BoardProps {
     playerTurn: boolean,
-    triggerAI: Function,
-    onClick: Function
+    onPiecePickup: Function,
+    onPiecePlace: Function,
 }
 
 interface BoardStates {
-    board: Array<Array<string>>
+    board: Array<Array<Piece>>,
+    remainingPieces: {
+        [key: string]: Array<Piece>
+    }
 }
 
 export class Board extends React.Component<BoardProps, BoardStates> {
     constructor(props: BoardProps) {
         super(props);
 
+        const arrayPiece = Array<Piece>(8).fill({
+            name: "",
+            color: "",
+            position: {
+                x: 0,
+                y: 0
+            },
+            hasMoved: false,
+            isAttacked: false
+        });
         this.state = {
-            board: Array<Array<string>>(8).fill([]).map(() => Array<string>(8).fill(""))
+            board: Array<Array<Piece>>(8).fill([]).map(() => arrayPiece.slice()
+                .map(
+                    () => {
+                        return {
+                            name: "",
+                            color: "",
+                            position: {
+                                x: 0,
+                                y: 0
+                            },
+                            hasMoved: false,
+                            isAttacked: false
+                        };
+                    }
+                )),
+            remainingPieces: {
+                "W": Array<Piece>(16).fill({
+                    name: "",
+                    color: "",
+                    position: {
+                        x: 0,
+                        y: 0
+                    },
+                    hasMoved: false,
+                    isAttacked: false
+                }),
+                "B": Array<Piece>(16).fill({
+                    name: "",
+                    color: "",
+                    position: {
+                        x: 0,
+                        y: 0
+                    },
+                    hasMoved: false,
+                    isAttacked: false
+                }),
+            }
         };
 
         const board = this.state.board.slice();
+        const remainingPieces = this.state.remainingPieces;
 
         // The general layout of chess pieces
         const layout = [
             ["Rook", "Knight", "Bishop", "Queen", "King", "Bishop", "Knight", "Rook"],
             ["Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn"]];
 
+        // Indices for remaining pieces
+        let whiteCount = 0;
+        let blackCount = 0;
         // Iterate through the layout and intialize both side of the board
         layout.forEach((row, rowIndex) => {
             row.forEach((pieceName, columnIndex) => {
-                board[0 + rowIndex][columnIndex] = pieceName + " B";
-                board[7 - rowIndex][columnIndex] = pieceName + " W";
+                board[0 + rowIndex][columnIndex].name = pieceName;
+                board[0 + rowIndex][columnIndex].color = "B";
+                board[0 + rowIndex][columnIndex].position = { x: columnIndex, y: 0 + rowIndex };
+                board[0 + rowIndex][columnIndex].hasMoved = false;
+
+                remainingPieces["B"][blackCount] = board[0 + rowIndex][columnIndex];
+                blackCount++;
+
+                board[7 - rowIndex][columnIndex].name = pieceName;
+                board[7 - rowIndex][columnIndex].color = "W";
+                board[7 - rowIndex][columnIndex].position = { x: columnIndex, y: 7 - rowIndex };
+                board[7 - rowIndex][columnIndex].hasMoved = false;
+
+                remainingPieces["W"][whiteCount] = board[7 - rowIndex][columnIndex];
+                whiteCount++;
             })
         });
 
         this.setState({ board: board });
     }
 
-    componentDidUpdate(prevProps: BoardProps) {
-        // If previously was the player's turn and now it's the AI's turn
-        if (prevProps.playerTurn !== this.props.playerTurn && !this.props.playerTurn) {
-
-            let board = this.state.board.slice();
-
-            // Use the prop function
-            let newBoard = this.props.triggerAI(board);
-
-            this.setState({ board: newBoard });
-
-        }
+    shouldComponentUpdate(nextProps: BoardProps) {
+        return true;
     }
 
     renderSquare(i: number, j: number) {
         return React.createElement(
             Square,
             {
-                value: { name: this.state.board[i][j] },
+                value: this.state.board[i][j],
                 onClick: () => {
-                    if (this.props.playerTurn)
-                        this.props.onClick(i, j)
+                    if (this.state.board[i][j].name !== "")
+                        this.setState({ board: this.props.onPiecePickup(this.state.board, i, j) })
+                    else
+                        this.setState({ board: this.props.onPiecePlace(this.state.board, this.state.remainingPieces, i, j) })
                 }
             },
             null
