@@ -18,13 +18,7 @@ export class Game extends React.Component<{}, GameStates> {
 
         this.state = {
             playerTurn: true,
-            holdingPiece: {
-                name: "",
-                color: "",
-                position: { x: 0, y: 0 },
-                hasMoved: false,
-                isAttacked: false
-            }
+            holdingPiece: new Piece()
         };
     }
 
@@ -41,16 +35,11 @@ export class Game extends React.Component<{}, GameStates> {
             console.log(`Picked up ${board[i][j].name}`)
 
             const holdingPiece = this.state.holdingPiece;
-            holdingPiece.name = board[i][j].name.slice();
-            holdingPiece.color = "W";
-            holdingPiece.position.x = board[i][j].position.x;
-            holdingPiece.position.y = board[i][j].position.y;
-            holdingPiece.hasMoved = !board[i][j].hasMoved;
-            holdingPiece.isAttacked = board[i][j].isAttacked;
+            holdingPiece.fromData(board[i][j]);
 
             this.setState({ holdingPiece: holdingPiece });
 
-            board[i][j].name = "";  // Clear the cell
+            board[i][j].clearName();  // Clear the cell
 
             console.log(`Holding: ${this.state.holdingPiece.name}`)
         }
@@ -74,17 +63,11 @@ export class Game extends React.Component<{}, GameStates> {
 
             console.log(`Valid placement!`);
 
-            board[i][j] = this.state.holdingPiece;
+            board[i][j].fromData(this.state.holdingPiece);
 
             // After a succesful move, it'll become the AI's turn
             this.setState({
-                holdingPiece: {
-                    name: "",
-                    color: "",
-                    position: { x: 0, y: 0 },
-                    hasMoved: false,
-                    isAttacked: false
-                }
+                holdingPiece: new Piece()
             });
 
             console.log(`AI is currently calculating the best move...`);

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ChessPiece, Piece } from './piece';
+import { Piece } from './piece';
 
 interface SquareProps {
     value: Piece,
@@ -17,8 +17,8 @@ export function Square(props: SquareProps) {
         (props.value.name !== "") ?
             React.createElement('img',
                 {
-                    src: ChessPiece(props.value),
-                    className: (!props.value.name.includes("Queen") ? "piece" : "queen-piece")
+                    src: props.value.imageSource,
+                    className: (props.value.name !== "Queen" ? "piece" : "queen-piece")
                 })
             :
             null

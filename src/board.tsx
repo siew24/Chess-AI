@@ -21,53 +21,13 @@ export class Board extends React.Component<BoardProps, BoardStates> {
     constructor(props: BoardProps) {
         super(props);
 
-        const arrayPiece = Array<Piece>(8).fill({
-            name: "",
-            color: "",
-            position: {
-                x: 0,
-                y: 0
-            },
-            hasMoved: false,
-            isAttacked: false
-        });
+        const arrayPiece = Array<Piece>(8).fill(new Piece());
         this.state = {
             board: Array<Array<Piece>>(8).fill([]).map(() => arrayPiece.slice()
-                .map(
-                    () => {
-                        return {
-                            name: "",
-                            color: "",
-                            position: {
-                                x: 0,
-                                y: 0
-                            },
-                            hasMoved: false,
-                            isAttacked: false
-                        };
-                    }
-                )),
+                .map(() => new Piece())),
             remainingPieces: {
-                "W": Array<Piece>(16).fill({
-                    name: "",
-                    color: "",
-                    position: {
-                        x: 0,
-                        y: 0
-                    },
-                    hasMoved: false,
-                    isAttacked: false
-                }),
-                "B": Array<Piece>(16).fill({
-                    name: "",
-                    color: "",
-                    position: {
-                        x: 0,
-                        y: 0
-                    },
-                    hasMoved: false,
-                    isAttacked: false
-                }),
+                "W": Array<Piece>(16).fill(new Piece()),
+                "B": Array<Piece>(16).fill(new Piece()),
             }
         };
 
@@ -85,20 +45,14 @@ export class Board extends React.Component<BoardProps, BoardStates> {
         // Iterate through the layout and intialize both side of the board
         layout.forEach((row, rowIndex) => {
             row.forEach((pieceName, columnIndex) => {
-                board[0 + rowIndex][columnIndex].name = pieceName;
-                board[0 + rowIndex][columnIndex].color = "B";
-                board[0 + rowIndex][columnIndex].position = { x: columnIndex, y: 0 + rowIndex };
-                board[0 + rowIndex][columnIndex].hasMoved = false;
+                board[0 + rowIndex][columnIndex] = new Piece(pieceName, "B", { x: columnIndex, y: 0 + rowIndex });
 
-                remainingPieces["B"][blackCount] = board[0 + rowIndex][columnIndex];
+                remainingPieces["B"][blackCount].fromData(board[0 + rowIndex][columnIndex]);
                 blackCount++;
 
-                board[7 - rowIndex][columnIndex].name = pieceName;
-                board[7 - rowIndex][columnIndex].color = "W";
-                board[7 - rowIndex][columnIndex].position = { x: columnIndex, y: 7 - rowIndex };
-                board[7 - rowIndex][columnIndex].hasMoved = false;
+                board[7 - rowIndex][columnIndex] = new Piece(pieceName, "W", { x: columnIndex, y: 7 - rowIndex });
 
-                remainingPieces["W"][whiteCount] = board[7 - rowIndex][columnIndex];
+                remainingPieces["W"][whiteCount].fromData(board[7 - rowIndex][columnIndex]);
                 whiteCount++;
             })
         });
