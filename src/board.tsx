@@ -2,12 +2,13 @@ import React from 'react';
 
 import { doSomethingHere } from './AI';
 import { Square } from './square';
-import { Piece } from './piece';
+import { Piece, Position } from './piece';
 
 interface BoardProps {
     playerTurn: boolean,
     onPiecePickup: Function,
     onPiecePlace: Function,
+    isHolding: boolean
 }
 
 interface BoardStates {
@@ -26,8 +27,8 @@ export class Board extends React.Component<BoardProps, BoardStates> {
             board: Array<Array<Piece>>(8).fill([]).map(() => arrayPiece.slice()
                 .map(() => new Piece())),
             remainingPieces: {
-                "W": Array<Piece>(16).fill(new Piece()),
-                "B": Array<Piece>(16).fill(new Piece()),
+                "W": Array<Piece>(16).fill(new Piece()).map(() => new Piece()),
+                "B": Array<Piece>(16).fill(new Piece()).map(() => new Piece()),
             }
         };
 
@@ -39,26 +40,28 @@ export class Board extends React.Component<BoardProps, BoardStates> {
             ["Rook", "Knight", "Bishop", "Queen", "King", "Bishop", "Knight", "Rook"],
             ["Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn"]];
 
-        // Indices for remaining pieces
-        let whiteCount = 0;
-        let blackCount = 0;
-        // Iterate through the layout and intialize both side of the board
+        // Iterate through the layout and intialize remainingPieces
         layout.forEach((row, rowIndex) => {
             row.forEach((pieceName, columnIndex) => {
-                board[0 + rowIndex][columnIndex] = new Piece(pieceName, "B", { x: columnIndex, y: 0 + rowIndex });
-
-                remainingPieces["B"][blackCount].fromData(board[0 + rowIndex][columnIndex]);
-                blackCount++;
-
-                board[7 - rowIndex][columnIndex] = new Piece(pieceName, "W", { x: columnIndex, y: 7 - rowIndex });
-
-                remainingPieces["W"][whiteCount].fromData(board[7 - rowIndex][columnIndex]);
-                whiteCount++;
+                remainingPieces["B"][(row.length * rowIndex) + columnIndex] = new Piece(pieceName, "B", new Position(columnIndex, rowIndex));
+                remainingPieces["W"][(row.length * rowIndex) + columnIndex] = new Piece(pieceName, "W", new Position(columnIndex, 7 - rowIndex));
             })
         });
 
+        // Iterate through the layout again to initialize the layout
+        layout.forEach((row, rowIndex) => {
+            row.forEach((pieceName, columnIndex) => {
+                board[0 + rowIndex][columnIndex] = remainingPieces["B"][(row.length * rowIndex) + columnIndex];
+
+                board[7 - rowIndex][columnIndex] = remainingPieces["W"][(row.length * rowIndex) + columnIndex];
+            })
+        });
+
+        // We can just iterate through remainingPieces and update their availableMoves
+        remainingPieces["W"].forEach(piece => piece.availableMoves(board));
+        remainingPieces["B"].forEach(piece => piece.availableMoves(board));
+
         this.setState({ board: board });
-        console.log(board);
     }
 
     shouldComponentUpdate(nextProps: BoardProps) {
@@ -71,7 +74,7 @@ export class Board extends React.Component<BoardProps, BoardStates> {
             {
                 value: this.state.board[i][j],
                 onClick: () => {
-                    if (this.state.board[i][j].name !== "")
+                    if (!this.props.isHolding)
                         this.setState({ board: this.props.onPiecePickup(this.state.board, i, j) })
                     else
                         this.setState({ board: this.props.onPiecePlace(this.state.board, this.state.remainingPieces, i, j) })
