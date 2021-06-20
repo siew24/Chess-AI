@@ -20,6 +20,11 @@ export class Position {
 }
 
 export class Piece {
+    // These two serves as a unique identifier of this Piece
+    // When searching within an array
+    private static _uid: number = 0;
+    private _uid: number;
+
     private _name: string;
     private _color: string;
     private _position: Position;
@@ -28,7 +33,15 @@ export class Piece {
     private _moves: Array<Position>;
     private _attacks: Array<Position>;
 
-    constructor(name: string = "", color: string = "", position: Position = new Position()) {
+    constructor(name: string = "", color: string = "", position: Position = new Position(), empty: boolean = true) {
+
+        // If the piece serves as an empty piece,
+        // we need to invalidate this piece by setting -1
+        if (!empty)
+            this._uid = Piece._uid++;
+        else
+            this._uid = -1;
+
         this._name = name;
         this._color = color;
         this._position = new Position();
@@ -39,6 +52,7 @@ export class Piece {
         this._attacks = [];
     }
 
+    get uid(): number { return this._uid; }
     get name(): string { return this._name; }
     get imageSource(): string { return "assets/" + this.name + " " + this.color + ".png"; }
     get color(): string { return this._color; }
@@ -85,6 +99,7 @@ export class Piece {
     clearName() { this._name = ""; }
 
     fromData(pieceObject: Piece): void {
+        this._uid = pieceObject.uid;
         this._name = pieceObject.name.slice();
         this._color = pieceObject.color.slice();
         this._position.fromData(pieceObject.position);
