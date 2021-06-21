@@ -88,9 +88,9 @@ export class Piece {
         return copy;
     }
 
-    set position(position: Position) {
-        this._position.fromData(position);
-    }
+    set position(position: Position) { this._position.fromData(position); }
+
+    set attacked(value: boolean) { this._isAttacked = value; }
 
     setMoved() {
         this._hasMoved = true;
@@ -108,6 +108,416 @@ export class Piece {
         this._moves = pieceObject.moves.slice();
         this._attacks = pieceObject.attacks.slice();
     }
+
+    /**
+     * 
+     *
+     * After evaluating availableMoves,
+     * we remove possibilities that may make the King in check, (King is not attacked) or
+     * possibilities that may make the King be still in check (King is attacked)
+     * 
+     * The modification is done by reference on remainingPieces
+    */
+    static restrictMovement(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
+        // Find out if the King is in check
+        for (let i = 0; i < remainingPieces["W"].length; i++) {
+            if (remainingPieces["W"][i].name === "King") {
+                let kingPiece = remainingPieces["W"][i];
+                let attackingPiece: Piece | undefined = undefined;
+                let moreThanOneAttack: boolean = false;
+                /*
+                    An attack can be blocked if:
+                    - There's only one attacking piece
+
+                    If there is a chance where two or more attacking pieces
+                    that are found, we remove possible blocking moves
+                */
+
+                // Check if there's a hidden knight attacking the King
+                let knightAttackFound = false;
+                for (let xOffset = -2; xOffset <= 2; xOffset++) {
+                    if (xOffset === 0)
+                        continue;
+
+                    for (let yOffset = -2; yOffset <= 2; yOffset++) {
+                        if (yOffset === 0)
+                            continue;
+
+                        if (xOffset === yOffset && xOffset === 0)
+                            continue;
+
+                        // Ensure the position is on the board
+                        if ((kingPiece.position.x + xOffset >= 0 && kingPiece.position.x + xOffset <= 7) &&
+                            (kingPiece.position.y + yOffset >= 0 && kingPiece.position.y + yOffset <= 7)) {
+                            // Check if the position is the opposite-colored knight piece
+                            if (board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].name === "Knight" &&
+                                board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].color !== kingPiece.color) {
+                                knightAttackFound = true;
+                                attackingPiece = board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset];
+                                break;
+                            }
+                        }
+
+                        if (knightAttackFound)
+                            break;
+                    }
+                }
+
+                /* 
+                    We first check for open checks
+                    The case where the King is in check also relies on
+                    this case
+
+                    Open checks occur on clear line of sights,
+                    so for each direction, 
+                    we record every same-colored piece and stop on encountering
+                    an opposite-colored piece
+                */
+                // We now iterate through 8 line of sights
+                for (let xStep = -1; xStep <= 1; xStep++) {
+                    for (let yStep = -1; yStep <= 1; yStep++) {
+
+                        // Exclude 0 0 case
+                        if (xStep === yStep && xStep === 0)
+                            continue;
+
+                        // Define the xy-direction
+                        let xStart = kingPiece.position.x;
+                        let yStart = kingPiece.position.y;
+
+                        // Define cache for same-colored piece and opposite-colored piece
+                        let pathPositions: Array<Position> = [];
+                        let sameBlockingPieces: Array<Piece> = [];
+                        let potentialAttackingPiece: Piece = new Piece();
+
+                        // Ensure we're looping within board boundaries
+                        while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                            (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                            xStart += xStep;
+                            yStart += yStep;
+
+                            let currentPiece = board[yStart][xStart];
+
+                            if (currentPiece.uid !== -1) {
+                                if (currentPiece.color === kingPiece.color)
+                                    sameBlockingPieces.push(currentPiece);
+                                else {
+                                    if (["Pawn", "Knight"].includes(currentPiece.name))
+                                        break;
+                                    // If we haven't found any same-colored pieces
+                                    // but instead encountered a linear movement opposite piece
+                                    if (sameBlockingPieces.length === 0) {
+                                        // Check if there's already an attacking piece
+                                        if (attackingPiece !== undefined) {
+                                            moreThanOneAttack = true;
+                                            break;
+                                        }
+                                        attackingPiece = currentPiece;
+                                        break;
+                                    }
+                                    else {
+                                        potentialAttackingPiece = currentPiece;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            pathPositions.push(new Position(xStart, yStart));
+                        }
+                        if (moreThanOneAttack)
+                            break;
+
+                        // If we have reached here, 
+                        // either we encountered an opposite piece
+                        // or we reach the edge of the board
+
+                        // We reached the edge - we can continue to the next line of sight
+                        if (potentialAttackingPiece.uid === -1)
+                            continue;
+
+                        // We found a potential open check
+                        // Go through each encountered same colored pieces
+                        // and filter out those which makes the King to be checked
+                        sameBlockingPieces.forEach(piece => {
+                            piece._moves = piece.moves.filter(moves => {
+                                return pathPositions.findIndex(position => moves.x === position.x && moves.y === position.y) !== -1;
+                            });
+
+                            // Update this to the remainingPieces as well
+                            let index = remainingPieces["W"].findIndex(remain => remain.uid === piece.uid);
+
+                            remainingPieces["W"][index]._moves = piece.moves;
+                        });
+                    }
+                    if (moreThanOneAttack)
+                        break;
+                }
+
+                // When there's only one attacking piece,
+                // Eating the attacking piece is valid
+                if (!moreThanOneAttack && attackingPiece !== undefined) {
+                    // Here we can assume that attackingPiece is passed in
+
+                    // If the attacking piece needs a clear line of sight
+                    if (attackingPiece.name !== "Knight") {
+                        // Generate a list of possible block positions
+                        let blockPositions: Array<Position> = [];
+                        // Define the x-direction and step
+                        let xStart = kingPiece.position.x;
+                        let xStep = kingPiece.position.x < attackingPiece.position.x ? 1
+                            : kingPiece.position.x === attackingPiece.position.x ? 0 : -1;
+                        // Define the y-direction and step
+                        let yStart = kingPiece.position.y;
+                        let yStep = kingPiece.position.y < attackingPiece.position.y ? 1
+                            : kingPiece.position.y === attackingPiece.position.y ? 0 : -1;
+
+                        xStart += xStep;
+                        yStart += yStep;
+                        while (attackingPiece.position.x !== xStart && attackingPiece.position.y !== yStart) {
+                            blockPositions.push(new Position(xStart, yStart));
+                            xStart += xStep;
+                            yStart += yStep;
+                        }
+
+                        // Go through each piece and clear moves that are not able to block
+                        remainingPieces["W"].forEach(piece => {
+                            if (piece.name !== "King") {
+                                piece._moves = piece.moves.filter(blockingMoves => {
+                                    // Keep moves that can block the attack
+                                    return blockPositions.findIndex(moves => moves.x === blockingMoves.x && moves.y === blockingMoves.y) !== -1;
+                                });
+                            }
+                        })
+                    }
+
+                    // Attacking a piece also prevents checking
+                    // Now check it can attack the attacking piece instead
+                    remainingPieces["W"].forEach(piece => {
+                        if (piece.name !== "King") {
+                            piece._attacks = piece.attacks.filter(attackMoves => {
+                                // Keep moves that can block the attack
+                                return (attackingPiece as Piece).position.x === attackMoves.x
+                                    && (attackingPiece as Piece).position.y === attackMoves.y;
+                            });
+                        }
+                    })
+                }
+                // There is more than one attacker - only King is able to move
+                else if (moreThanOneAttack) {
+                    // Remove all moves and attacks from every piece except the King
+                    remainingPieces["W"].forEach(piece => {
+                        if (piece.name !== "King") {
+                            piece._moves = [];
+                            piece._attacks = [];
+                        }
+                    })
+                }
+
+                break;
+            }
+        }
+
+        // Now for Black Pieces
+        for (let i = 0; i < remainingPieces["B"].length; i++) {
+            if (remainingPieces["B"][i].name === "King") {
+                let kingPiece = remainingPieces["B"][i];
+                let attackingPiece: Piece | undefined = undefined;
+                let moreThanOneAttack: boolean = false;
+                /*
+                    An attack can be blocked if:
+                    - There's only one attacking piece
+
+                    If there is a chance where two or more attacking pieces
+                    that are found, we remove possible blocking moves
+                */
+
+                // Check if there's a hidden knight attacking the King
+                let knightAttackFound = false;
+                for (let xOffset = -2; xOffset <= 2; xOffset++) {
+                    if (xOffset === 0)
+                        continue;
+
+                    for (let yOffset = -2; yOffset <= 2; yOffset++) {
+                        if (yOffset === 0)
+                            continue;
+
+                        if (xOffset === yOffset && xOffset === 0)
+                            continue;
+
+                        // Ensure the position is on the board
+                        if ((kingPiece.position.x + xOffset >= 0 && kingPiece.position.x + xOffset <= 7) &&
+                            (kingPiece.position.y + yOffset >= 0 && kingPiece.position.y + yOffset <= 7)) {
+                            // Check if the position is the opposite-colored knight piece
+                            if (board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].name === "Knight" &&
+                                board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].color !== kingPiece.color) {
+                                knightAttackFound = true;
+                                attackingPiece = board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset];
+                                break;
+                            }
+                        }
+
+                        if (knightAttackFound)
+                            break;
+                    }
+                }
+
+                /* 
+                    We first check for open checks
+                    The case where the King is in check also relies on
+                    this case
+
+                    Open checks occur on clear line of sights,
+                    so for each direction, 
+                    we record every same-colored piece and stop on encountering
+                    an opposite-colored piece
+                */
+                // We now iterate through 8 line of sights
+                for (let xStep = -1; xStep <= 1; xStep++) {
+                    for (let yStep = -1; yStep <= 1; yStep++) {
+
+                        // Exclude 0 0 case
+                        if (xStep === yStep && xStep === 0)
+                            continue;
+
+                        // Define the xy-direction
+                        let xStart = kingPiece.position.x;
+                        let yStart = kingPiece.position.y;
+
+                        // Define cache for same-colored piece and opposite-colored piece
+                        let pathPositions: Array<Position> = [];
+                        let sameBlockingPieces: Array<Piece> = [];
+                        let potentialAttackingPiece: Piece = new Piece();
+
+                        // Ensure we're looping within board boundaries
+                        while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                            (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                            xStart += xStep;
+                            yStart += yStep;
+
+                            let currentPiece = board[yStart][xStart];
+
+                            if (currentPiece.uid !== -1) {
+                                if (currentPiece.color === kingPiece.color)
+                                    sameBlockingPieces.push(currentPiece);
+                                else {
+                                    if (["Pawn", "Knight"].includes(currentPiece.name))
+                                        break;
+                                    // If we haven't found any same-colored pieces
+                                    // but instead encountered a linear movement opposite piece
+                                    if (sameBlockingPieces.length === 0) {
+                                        // Check if there's already an attacking piece
+                                        if (attackingPiece !== undefined) {
+                                            moreThanOneAttack = true;
+                                            break;
+                                        }
+                                        attackingPiece = currentPiece;
+                                        break;
+                                    }
+                                    else {
+                                        potentialAttackingPiece = currentPiece;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            pathPositions.push(new Position(xStart, yStart));
+                        }
+                        if (moreThanOneAttack)
+                            break;
+
+                        // If we have reached here, 
+                        // either we encountered an opposite piece
+                        // or we reach the edge of the board
+
+                        // We reached the edge - we can continue to the next line of sight
+                        if (potentialAttackingPiece.uid === -1)
+                            continue;
+
+                        // We found a potential open check
+                        // Go through each encountered same colored pieces
+                        // and filter out those which makes the King to be checked
+                        sameBlockingPieces.forEach(piece => {
+                            piece._moves = piece.moves.filter(moves => {
+                                return pathPositions.findIndex(position => moves.x === position.x && moves.y === position.y) !== -1;
+                            });
+
+                            // Update this to the remainingPieces as well
+                            let index = remainingPieces["B"].findIndex(remain => remain.uid === piece.uid);
+
+                            remainingPieces["B"][index]._moves = piece.moves;
+                        });
+                    }
+                    if (moreThanOneAttack)
+                        break;
+                }
+
+                // When there's only one attacking piece,
+                // Eating the attacking piece is valid
+                if (!moreThanOneAttack && attackingPiece !== undefined) {
+                    // Here we can assume that attackingPiece is passed in
+
+                    // If the attacking piece needs a clear line of sight
+                    if (attackingPiece.name !== "Knight") {
+                        // Generate a list of possible block positions
+                        let blockPositions: Array<Position> = [];
+                        // Define the x-direction and step
+                        let xStart = kingPiece.position.x;
+                        let xStep = kingPiece.position.x < attackingPiece.position.x ? 1
+                            : kingPiece.position.x === attackingPiece.position.x ? 0 : -1;
+                        // Define the y-direction and step
+                        let yStart = kingPiece.position.y;
+                        let yStep = kingPiece.position.y < attackingPiece.position.y ? 1
+                            : kingPiece.position.y === attackingPiece.position.y ? 0 : -1;
+
+                        xStart += xStep;
+                        yStart += yStep;
+                        while (attackingPiece.position.x !== xStart && attackingPiece.position.y !== yStart) {
+                            blockPositions.push(new Position(xStart, yStart));
+                            xStart += xStep;
+                            yStart += yStep;
+                        }
+
+                        // Go through each piece and clear moves that are not able to block
+                        remainingPieces["B"].forEach(piece => {
+                            if (piece.name !== "King") {
+                                piece._moves = piece.moves.filter(blockingMoves => {
+                                    // Keep moves that can block the attack
+                                    return blockPositions.findIndex(moves => moves.x === blockingMoves.x && moves.y === blockingMoves.y) !== -1;
+                                });
+                            }
+                        })
+                    }
+
+                    // Attacking a piece also prevents checking
+                    // Now check it can attack the attacking piece instead
+                    remainingPieces["B"].forEach(piece => {
+                        if (piece.name !== "King") {
+                            piece._attacks = piece.attacks.filter(attackMoves => {
+                                // Keep moves that can block the attack
+                                return (attackingPiece as Piece).position.x === attackMoves.x
+                                    && (attackingPiece as Piece).position.y === attackMoves.y;
+                            });
+                        }
+                    })
+                }
+                // There is more than one attacker - only King is able to move
+                else if (moreThanOneAttack) {
+                    // Remove all moves and attacks from every piece except the King
+                    remainingPieces["B"].forEach(piece => {
+                        if (piece.name !== "King") {
+                            piece._moves = [];
+                            piece._attacks = [];
+                        }
+                    })
+                }
+
+                break;
+            }
+        }
+    }
+
 
     availableMoves(board: Array<Array<Piece>>, remainingOppositePieces?: Array<Piece>) {
         let possibleMoves: Array<Position> = [];
@@ -139,11 +549,11 @@ export class Piece {
                 }
 
                 // Check infront
-                if (this.position.y !== 7 && board[this.position.y + 1][this.position.x].name === "")
+                if (this.position.y !== 7 && board[this.position.y + 1][this.position.x].uid === -1)
                     possibleMoves.push(new Position(this.position.x, this.position.y + 1));
 
                 // If itself did not move and no other piece are on that tile
-                if (this.position.y === 1 && board[this.position.y + 2][this.position.x].name === "")
+                if (this.position.y === 1 && board[this.position.y + 2][this.position.x].uid === -1)
                     possibleMoves.push(new Position(this.position.x, this.position.y + 2));
             }
             if (this.color === "W") {
@@ -167,296 +577,117 @@ export class Piece {
                 }
 
                 // Check infront
-                if (this.position.y !== 0 && board[this.position.y - 1][this.position.x].name === "")
+                if (this.position.y !== 0 && board[this.position.y - 1][this.position.x].uid === -1)
                     possibleMoves.push(new Position(this.position.x, this.position.y - 1));
 
                 // If itself did not move
-                if (this.position.y === 6 && board[this.position.y - 2][this.position.x].name === "")
+                if (this.position.y === 6 && board[this.position.y - 2][this.position.x].uid === -1)
                     possibleMoves.push(new Position(this.position.x, this.position.y - 2));
             }
         }
         // This is a Rook
         else if (this.name === "Rook") {
 
-            // Go Vertically
-            let verticalMaxDistance = Math.max(this.position.y, 8 - this.position.y - 1);
-            let upBlocked = false;
-            let downBlocked = false;
-            for (let verticalOffset = 1; verticalOffset <= verticalMaxDistance; verticalOffset++) {
-                if (this.position.y - verticalOffset >= 0 && !upBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - verticalOffset][this.position.x].name !== "") {
+            for (let xStep = -1; xStep <= 1; xStep++) {
+                for (let yStep = -1; yStep <= 1; yStep++) {
 
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - verticalOffset][this.position.x].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x, this.position.y - verticalOffset));
+                    if (xStep * yStep !== 0)
+                        continue;
 
-                        upBlocked = true;
+                    if (xStep === yStep && xStep === 0)
+                        continue;
+
+                    // Define starting position
+                    let xStart = this.position.x;
+                    let yStart = this.position.y;
+
+                    // Ensure we're looping within board boundaries
+                    while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                        (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                        xStart += xStep;
+                        yStart += yStep;
+
+                        // Stop traversing this line when
+                        // some piece has blocked the line of sight
+                        if (board[yStart][xStart].uid !== -1) {
+                            // The only exception is the piece is an opposite color
+                            if (board[yStart][xStart].color !== this.color)
+                                possibleMoves.push(new Position(xStart, yStart));
+
+                            break;
+                        }
+
+                        possibleMoves.push(new Position(xStart, yStart));
                     }
-                    else
-                        possibleMoves.push(new Position(this.position.x, this.position.y - verticalOffset));
-
-                }
-                if (this.position.y + verticalOffset < 8 && !downBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + verticalOffset][this.position.x].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + verticalOffset][this.position.x].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x, this.position.y + verticalOffset));
-
-                        downBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x, this.position.y + verticalOffset));
-                }
-            }
-
-            // Go Horizontally
-            let horizontalMaxDistance = Math.max(this.position.x, 8 - this.position.x - 1);
-            let leftBlocked = false;
-            let rightBlocked = false;
-            for (let horizontalOffset = 1; horizontalOffset <= horizontalMaxDistance; horizontalOffset++) {
-                if (this.position.x - horizontalOffset >= 0 && !leftBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y][this.position.x - horizontalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y][this.position.x - horizontalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - horizontalOffset, this.position.y));
-
-                        leftBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x - horizontalOffset, this.position.y));
-
-                }
-                if (this.position.x + horizontalOffset < 8 && !rightBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y][this.position.x + horizontalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y][this.position.x + horizontalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + horizontalOffset, this.position.y));
-
-                        rightBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + horizontalOffset, this.position.y));
                 }
             }
-
         }
         // This is a Bishop
         else if (this.name === "Bishop") {
 
-            // Go Diagonally
-            let diagonalMaxDistance = Math.max(this.position.x, 8 - this.position.x - 1);
-            let leftUpBlocked = false;
-            let leftDownBlocked = false;
-            let rightUpBlocked = false;
-            let rightDownBlocked = false;
-            for (let diagonalOffset = 1; diagonalOffset <= diagonalMaxDistance; diagonalOffset++) {
-                if (this.position.y - diagonalOffset >= 0 && this.position.x - diagonalOffset >= 0 && !leftUpBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - diagonalOffset][this.position.x - diagonalOffset].name !== "") {
+            for (let xStep = -1; xStep <= 1; xStep += 2) {
 
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - diagonalOffset][this.position.x - diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y - diagonalOffset));
+                for (let yStep = -1; yStep <= 1; yStep += 2) {
+                    // Define the xy-direction
+                    let xStart = this.position.x;
+                    let yStart = this.position.y;
 
-                        leftUpBlocked = true;
+                    // Ensure we're looping within board boundaries
+                    while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                        (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                        xStart += xStep;
+                        yStart += yStep;
+
+                        // Stop traversing this line when
+                        // some piece has blocked the line of sight
+                        if (board[yStart][xStart].uid !== -1) {
+                            // The only exception is the piece is an opposite color
+                            if (board[yStart][xStart].color !== this.color)
+                                possibleMoves.push(new Position(xStart, yStart));
+
+                            break;
+                        }
+
+                        possibleMoves.push(new Position(xStart, yStart));
                     }
-                    else
-                        possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y - diagonalOffset));
-                }
-                if (this.position.y + diagonalOffset < 8 && this.position.x - diagonalOffset >= 0 && !leftDownBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + diagonalOffset][this.position.x - diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + diagonalOffset][this.position.x - diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y + diagonalOffset));
-
-                        leftDownBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y + diagonalOffset));
-                }
-                if (this.position.y - diagonalOffset >= 0 && this.position.x + diagonalOffset < 8 && !rightUpBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - diagonalOffset][this.position.x + diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - diagonalOffset][this.position.x + diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y - diagonalOffset));
-
-                        rightUpBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y - diagonalOffset));
-                }
-                if (this.position.y + diagonalOffset < 8 && this.position.x + diagonalOffset < 8 && !rightDownBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + diagonalOffset][this.position.x + diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + diagonalOffset][this.position.x + diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y + diagonalOffset));
-
-                        rightDownBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y + diagonalOffset));
                 }
             }
-
         }
         // This is a Queen
         else if (this.name === "Queen") {
 
-            // Go Vertically
-            let verticalMaxDistance = Math.max(this.position.y, 8 - this.position.y - 1);
-            let upBlocked = false;
-            let downBlocked = false;
-            for (let verticalOffset = 1; verticalOffset <= verticalMaxDistance; verticalOffset++) {
-                if (this.position.y - verticalOffset >= 0 && !upBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - verticalOffset][this.position.x].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - verticalOffset][this.position.x].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x, this.position.y - verticalOffset));
-
-                        upBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x, this.position.y - verticalOffset));
-
-                }
-                if (this.position.y + verticalOffset < 8 && !downBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + verticalOffset][this.position.x].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + verticalOffset][this.position.x].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x, this.position.y + verticalOffset));
-
-                        downBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x, this.position.y + verticalOffset));
-                }
-            }
-
-            // Go Horizontally
-            let horizontalMaxDistance = Math.max(this.position.x, 8 - this.position.x - 1);
-            let leftBlocked = false;
-            let rightBlocked = false;
-            for (let horizontalOffset = 1; horizontalOffset <= horizontalMaxDistance; horizontalOffset++) {
-                if (this.position.x - horizontalOffset >= 0 && !leftBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y][this.position.x - horizontalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y][this.position.x - horizontalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - horizontalOffset, this.position.y));
-
-                        leftBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x - horizontalOffset, this.position.y));
-
-                }
-                if (this.position.x + horizontalOffset < 8 && !rightBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y][this.position.x + horizontalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y][this.position.x + horizontalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + horizontalOffset, this.position.y));
-
-                        rightBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + horizontalOffset, this.position.y));
-                }
-            }
-
             // Go Diagonally
-            let diagonalMaxDistance = Math.max(this.position.x, 8 - this.position.x - 1);
-            let leftUpBlocked = false;
-            let leftDownBlocked = false;
-            let rightUpBlocked = false;
-            let rightDownBlocked = false;
-            for (let diagonalOffset = 1; diagonalOffset <= diagonalMaxDistance; diagonalOffset++) {
-                if (this.position.y - diagonalOffset >= 0 && this.position.x - diagonalOffset >= 0 && !leftUpBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - diagonalOffset][this.position.x - diagonalOffset].name !== "") {
+            for (let xStep = -1; xStep <= 1; xStep++) {
+                for (let yStep = -1; yStep <= 1; yStep++) {
 
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - diagonalOffset][this.position.x - diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y - diagonalOffset));
+                    if (xStep === yStep && xStep === 0)
+                        continue;
 
-                        leftUpBlocked = true;
+                    // Define the starting position
+                    let xStart = this.position.x;
+                    let yStart = this.position.y;
+
+                    // Ensure we're looping within board boundaries
+                    while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                        (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                        xStart += xStep;
+                        yStart += yStep;
+
+                        // Stop traversing this line when
+                        // some piece has blocked the line of sight
+                        if (board[yStart][xStart].uid !== -1) {
+                            // The only exception is the piece is an opposite color
+                            if (board[yStart][xStart].color !== this.color)
+                                possibleMoves.push(new Position(xStart, yStart));
+
+                            break;
+                        }
+
+                        possibleMoves.push(new Position(xStart, yStart));
                     }
-                    else
-                        possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y - diagonalOffset));
-                }
-                if (this.position.y + diagonalOffset < 8 && this.position.x - diagonalOffset >= 0 && !leftDownBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + diagonalOffset][this.position.x - diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + diagonalOffset][this.position.x - diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y + diagonalOffset));
-
-                        leftDownBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x - diagonalOffset, this.position.y + diagonalOffset));
-                }
-                if (this.position.y - diagonalOffset >= 0 && this.position.x + diagonalOffset < 8 && !rightUpBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y - diagonalOffset][this.position.x + diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y - diagonalOffset][this.position.x + diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y - diagonalOffset));
-
-                        rightUpBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y - diagonalOffset));
-                }
-                if (this.position.y + diagonalOffset < 8 && this.position.x + diagonalOffset < 8 && !rightDownBlocked) {
-                    // We found a piece blocker
-                    if (board[this.position.y + diagonalOffset][this.position.x + diagonalOffset].name !== "") {
-
-                        // The only exception is that it's an opposite piece
-                        // - That's a valid move
-                        if (board[this.position.y + diagonalOffset][this.position.x + diagonalOffset].color !== this.color)
-                            possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y + diagonalOffset));
-
-                        rightDownBlocked = true;
-                    }
-                    else
-                        possibleMoves.push(new Position(this.position.x + diagonalOffset, this.position.y + diagonalOffset));
                 }
             }
 
@@ -464,50 +695,31 @@ export class Piece {
         // This is a Knight
         else if (this.name === "Knight") {
 
-            // There are only 8 moves to check
-            // Starting from the left
-            if (this.position.x - 2 >= 0) {
-                if (this.position.y + 1 < 8 &&
-                    (board[this.position.y + 1][this.position.x - 2].name === "" ||
-                        board[this.position.y + 1][this.position.x - 2].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 2, this.position.y + 1));
-                if (this.position.y - 1 >= 0 &&
-                    (board[this.position.y - 1][this.position.x - 2].name === "" ||
-                        board[this.position.y - 1][this.position.x - 2].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 2, this.position.y - 1));
-            }
-            if (this.position.x - 1 >= 0) {
-                if (this.position.y + 2 < 8 &&
-                    (board[this.position.y + 2][this.position.x - 1].name === "" ||
-                        board[this.position.y + 2][this.position.x - 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 1, this.position.y + 2));
-                if (this.position.y - 2 >= 0 &&
-                    (board[this.position.y - 2][this.position.x - 1].name === "" ||
-                        board[this.position.y - 2][this.position.x - 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 1, this.position.y - 2));
-            }
-            // Now onto the right
-            if (this.position.x + 2 < 8) {
-                if (this.position.y + 1 < 8 &&
-                    (board[this.position.y + 1][this.position.x + 2].name === "" ||
-                        board[this.position.y + 1][this.position.x + 2].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x + 2, this.position.y + 1));
-                if (this.position.y - 1 >= 0 &&
-                    (board[this.position.y - 1][this.position.x + 2].name === "" ||
-                        board[this.position.y - 1][this.position.x + 2].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x + 2, this.position.y - 1));
-            }
-            if (this.position.x + 1 < 8) {
-                if (this.position.y + 2 < 8 &&
-                    (board[this.position.y + 2][this.position.x + 1].name === "" ||
-                        board[this.position.y + 2][this.position.x + 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x + 1, this.position.y + 2));
-                if (this.position.y - 2 >= 0 &&
-                    (board[this.position.y - 2][this.position.x + 1].name === "" ||
-                        board[this.position.y - 2][this.position.x + 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x + 1, this.position.y - 2));
-            }
+            // Check for 8 moves
+            for (let xOffset = -2; xOffset <= 2; xOffset++) {
+                if (xOffset === 0)
+                    continue;
 
+                for (let yOffset = -2; yOffset <= 2; yOffset++) {
+                    if (yOffset === 0)
+                        continue;
+
+                    if (Math.abs(xOffset * yOffset) !== 2)
+                        continue;
+
+                    // Ensure the position is on the board
+                    if ((this.position.x + xOffset >= 0 && this.position.x + xOffset <= 7) &&
+                        (this.position.y + yOffset >= 0 && this.position.y + yOffset <= 7)) {
+                        // Check if the position is a same-colored piece
+                        if (board[this.position.y + yOffset][this.position.x + xOffset].uid !== -1 &&
+                            board[this.position.y + yOffset][this.position.x + xOffset].color === this.color)
+                            continue;
+
+                        // Otherwise add this move
+                        possibleMoves.push(new Position(this.position.x + xOffset, this.position.y + yOffset));
+                    }
+                }
+            }
         }
         // This is a King WORKING
         else if (this.name === "King") {
@@ -515,78 +727,33 @@ export class Piece {
             // The logic for this particular piece is a little difficult
             // It can only move to positions that aren't being attacked by other pieces
             // Here we'll calculate all possible moves without caring whether it'll get checked
-            // debugger;
-            // Check the upper left corner
-            if (this.position.y - 1 >= 0 && this.position.x - 1 >= 0) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y - 1][this.position.x - 1].name === "" ||
-                    (board[this.position.y - 1][this.position.x - 1].name !== ""
-                        && board[this.position.y - 1][this.position.x - 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 1, this.position.y - 1));
-            }
 
-            // Check the top
-            if (this.position.y - 1 >= 0) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y - 1][this.position.x].name === "" ||
-                    (board[this.position.y - 1][this.position.x].name !== ""
-                        && board[this.position.y - 1][this.position.x].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x, this.position.y - 1));
-            }
+            for (let xStep = -1; xStep <= 1; xStep++) {
+                for (let yStep = -1; yStep <= 1; yStep++) {
 
-            // Check the upper right corner
-            if (this.position.y - 1 >= 0 && this.position.x + 1 <= 7) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y - 1][this.position.x + 1].name === "" ||
-                    (board[this.position.y - 1][this.position.x + 1].name !== ""
-                        && board[this.position.y - 1][this.position.x + 1].color !== this.color)) {
-                    possibleMoves.push(new Position(this.position.x + 1, this.position.y - 1));
+                    if (xStep === yStep && xStep === 0)
+                        continue;
+
+                    // Define the xy-direction
+                    let xStart = this.position.x;
+                    let yStart = this.position.y;
+
+                    // Ensure we're looping within board boundaries
+                    if ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
+                        (yStart + yStep >= 0 && yStart + yStep <= 7)) {
+
+                        xStart += xStep;
+                        yStart += yStep;
+
+                        if (board[yStart][xStart].uid !== -1) {
+                            // If we encounter an opposite colored piece
+                            if (board[yStart][xStart].color !== this.color)
+                                possibleMoves.push(new Position(xStart, yStart));
+                        }
+                        else
+                            possibleMoves.push(new Position(xStart, yStart));
+                    }
                 }
-            }
-
-            // Check the bottom left corner
-            if (this.position.y + 1 <= 7 && this.position.x - 1 >= 0) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y + 1][this.position.x - 1].name === "" ||
-                    (board[this.position.y + 1][this.position.x - 1].name !== ""
-                        && board[this.position.y + 1][this.position.x - 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 1, this.position.y + 1));
-            }
-
-            // Check the bottom
-            if (this.position.y + 1 <= 7) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y + 1][this.position.x].name === "" ||
-                    (board[this.position.y + 1][this.position.x].name !== ""
-                        && board[this.position.y + 1][this.position.x].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x, this.position.y + 1));
-            }
-
-            // Check the bottom right corner
-            if (this.position.y + 1 <= 7 && this.position.x + 1 <= 7) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y + 1][this.position.x + 1].name === "" ||
-                    (board[this.position.y + 1][this.position.x + 1].name !== ""
-                        && board[this.position.y + 1][this.position.x + 1].color !== this.color)) {
-                    possibleMoves.push(new Position(this.position.x + 1, this.position.y + 1));
-                }
-            }
-
-            // Check the left
-            if (this.position.x - 1 >= 0) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y][this.position.x - 1].name === "" ||
-                    (board[this.position.y][this.position.x - 1].name !== ""
-                        && board[this.position.y][this.position.x - 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x - 1, this.position.y));
-            }
-            // Check the right
-            if (this.position.x + 1 <= 7) {
-                // Only if the targeted position is not the same color piece
-                if (board[this.position.y][this.position.x + 1].name === "" ||
-                    (board[this.position.y][this.position.x + 1].name !== ""
-                        && board[this.position.y][this.position.x + 1].color !== this.color))
-                    possibleMoves.push(new Position(this.position.x + 1, this.position.y));
             }
 
             // The King can castle if it has not moved

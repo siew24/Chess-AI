@@ -146,3 +146,23 @@ ol, ul {
 .game-info {
     margin-left: 20px;
 }
+
+.popup_inner {
+    position: absolute;
+    left: 25%;
+    right: 25%;
+    top: 25%;
+    bottom: 25%;
+    margin: auto;
+    background: white;
+    display: grid;
+    grid-template-columns: [first] 25% [line2] auto [line3] 25% [end];
+    grid-template-rows: [row1] 25% [row2] 10% [row3] 10% [row4] 10% [row5] 10% [end];
+
+    grid-template-areas: 
+    ". header ."
+    ". item1 ."
+    ". item2 ."
+    ". item3 ."
+    ". item4 .";
+}

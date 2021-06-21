@@ -16,9 +16,6 @@ interface BoardProps {
 }
 
 export class Board extends React.Component<BoardProps> {
-    constructor(props: BoardProps) {
-        super(props);
-    }
 
     shouldComponentUpdate(nextProps: BoardProps) {
         return true;

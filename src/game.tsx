@@ -3,6 +3,7 @@ import React from 'react';
 import { Board } from './board';
 import { Position, Piece } from './piece';
 import { doSomethingHere } from './AI';
+import { Popup } from './popup';
 import './index.css';
 
 // Game should handle player states
@@ -124,13 +125,82 @@ export class Game extends React.Component<{}, GameStates> {
                 piece.fromData(board[rowIndex][columnIndex]);
             })
         });
-
-        console.log(this.state.board);
     }
 
     _handleAI(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): Array<Array<Piece>> {
         // After some calculation, a best board state from the AI will be given here
         return doSomethingHere(board, remainingPieces);
+    }
+
+    /**
+     * Updates remainingPieces with the newer info from the Board
+     */
+    syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
+        remainingPieces["W"].forEach(piece => {
+            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
+                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
+                    if (board[rowIndex][columnIndex].uid === piece.uid) {
+                        // Fetch updated data from Board piece
+                        piece.fromData(board[rowIndex][columnIndex]);
+                    }
+                }
+            }
+        }
+        );
+        remainingPieces["B"].forEach(piece => {
+            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
+                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
+                    if (board[rowIndex][columnIndex].uid === piece.uid) {
+                        // Fetch updated data from Board piece
+                        piece.fromData(board[rowIndex][columnIndex]);
+                    }
+                }
+            }
+        }
+        );
+    }
+
+    /**
+     * Updates the Board with the newer info from remainingPieces
+     */
+    syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
+        remainingPieces["W"].forEach(piece => {
+            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
+                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
+                    if (board[rowIndex][columnIndex].uid === piece.uid) {
+                        // Update positions
+                        if (board[piece.position.y][piece.position.x].uid !== -1) {
+                            // An opposite piece has been eaten
+                            remainingPieces["B"] = remainingPieces["B"].filter(oppositePiece => {
+                                return oppositePiece.uid !== board[piece.position.y][piece.position.x].uid;
+                            });
+                        }
+
+                        board[piece.position.y][piece.position.x].fromData(piece);
+
+                    }
+                }
+            }
+        }
+
+        );
+        remainingPieces["B"].forEach(piece => {
+            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
+                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
+                    if (board[rowIndex][columnIndex].uid === piece.uid) {
+                        // Update positions
+                        if (board[piece.position.y][piece.position.x].uid !== -1) {
+                            // An opposite piece has been eaten
+                            remainingPieces["W"] = remainingPieces["W"].filter(oppositePiece => {
+                                return oppositePiece.uid !== board[piece.position.y][piece.position.x].uid;
+                            });
+                        }
+
+                        piece.position.fromData(board[rowIndex][columnIndex].position);
+                    }
+                }
+            }
+        });
     }
 
     onPiecePickup(i: number, j: number) {
@@ -186,16 +256,30 @@ export class Game extends React.Component<{}, GameStates> {
             let currentPiece = new Piece();
             currentPiece.fromData(this.state.holdingPiece);
 
-            // If the clicked area is not a valid move
-            if (!currentPiece.moves.find(value => value.x === j && value.y === i))
-                return;
+            // If the clicked area is the original position of the piece
+            if (currentPiece.position.x === j && currentPiece.position.y === i) {
+                board[i][j].fromData(currentPiece);
+                this.setState({ holdingPiece: new Piece() });
+                this.setState({ isHolding: false });
 
+                // Hacky way to modify state
+                this.state.board.forEach((row, rowIndex) => {
+                    row.forEach((piece, columnIndex) => {
+                        piece.fromData(board[rowIndex][columnIndex]);
+                    })
+                });
+
+                return;
+            }
             // If the clicked area is an opposite color piece but not a valid attack move
             else if (board[i][j].name !== "" && board[i][j].color !== currentPiece.color &&
                 !currentPiece.attacks.find(value => value.x === j && value.y === i)) {
                 console.log("Not a valid attack move")
                 return;
             }
+            // If the clicked area is not a valid move
+            else if (!currentPiece.moves.find(value => value.x === j && value.y === i))
+                return;
 
             console.log(`Valid placement!`);
             this.setState({ isHolding: false });
@@ -253,74 +337,58 @@ export class Game extends React.Component<{}, GameStates> {
         // We have checked that it's either a move or an attack move
         // on the above
         if (board[i][j].name !== "") {
-
-            // Find the unique piece from remainingPieces
-            let eatenPieceIndex = remainingPieces["B"].findIndex(piece => board[i][j].uid === piece.uid);
-
-            remainingPieces["B"].splice(eatenPieceIndex, 1);
+            // remove the unique piece from remainingPieces
+            remainingPieces["B"] = remainingPieces["B"].filter(piece => board[i][j].uid !== piece.uid);
         }
-
-        console.log(`Black Piece Count: ${remainingPieces["B"].length}`)
 
         // Before placing down the piece, check if it's a King and it's a castling move
         if (currentPiece.name === "King" && Math.abs(currentPiece.position.x - j) === 2) {
             // Move the rook as well
             if (j < 4) {
                 board[i][j + 1].fromData(board[i][0]);
+                board[i][j + 1].position = new Position(j + 1, i);
                 board[i][0] = new Piece();
             }
             else if (j > 4) {
                 board[i][j - 1].fromData(board[i][7]);
+                board[i][j - 1].position = new Position(j - 1, i);
                 board[i][7] = new Piece();
             }
         }
-
-        // 
 
         // Place down the piece
         currentPiece.position = new Position(j, i);
         currentPiece.setMoved();
 
+        // Mark if the attacked piece is a King
+        for (let index = 0; index < currentPiece.attacks.length; index++) {
+            let position = currentPiece.attacks[index];
+            if (board[position.y][position.x].name === "King") {
+                board[position.y][position.x].attacked = true;
+                break;
+            }
+        }
+
         // Fill the current square with data of currentPiece
         board[i][j].fromData(currentPiece);
 
+        // Calculate availableMoves for each piece on the board
+        board.forEach(row => {
+            row.forEach(piece => {
+                if (piece.uid !== -1) {
+                    if (piece.name === "King")
+                        piece.availableMoves(board, remainingPieces[piece.color === "B" ? "W" : "B"]);
+                    else
+                        piece.availableMoves(board);
+                }
+            })
+        });
+
         // Because board and remainingPieces are mutually exclusive, we have to
         // iterate through both remainingPieces and board and recalculate availableMoves
-        remainingPieces["W"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-
-                        if (piece.name === "King") {
-                            piece.availableMoves(board, remainingPieces["B"]);
-                            board[rowIndex][columnIndex].availableMoves(board, remainingPieces["B"]);
-                        }
-                        else {
-                            piece.availableMoves(board);
-                            board[rowIndex][columnIndex].availableMoves(board);
-                        }
-                    }
-                }
-            }
-
-        });
-        remainingPieces["B"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-
-                        if (piece.name === "King") {
-                            piece.availableMoves(board, remainingPieces["W"]);
-                            board[rowIndex][columnIndex].availableMoves(board, remainingPieces["W"]);
-                        }
-                        else {
-                            piece.availableMoves(board);
-                            board[rowIndex][columnIndex].availableMoves(board);
-                        }
-                    }
-                }
-            }
-        });
+        this.syncRemainingPieceswithBoard(board, remainingPieces);
+        Piece.restrictMovement(board, remainingPieces);
+        this.syncBoardwithRemainingPieces(board, remainingPieces);
 
         // After a succesful move, it'll become the AI's turn
         this.setState({
@@ -356,11 +424,74 @@ export class Game extends React.Component<{}, GameStates> {
 
         const newBoard = this._handleAI(boardCopy, remainingCopy);
 
-        // From the newBoard, we can determine which piece has been moved/eaten
+        // Using remainingPieces, we can determine which piece has been moved/eaten
         // Update remainingPiece according to the moved piece and the possibly eaten piece
-        // Do the logic here
+        for (let pieceIndex = 0; pieceIndex < remainingPieces["B"].length; pieceIndex++) {
 
+            // Get a reference of the current piece
+            let piece = remainingPieces["B"][pieceIndex];
+
+            // If the piece's position is not on the newBoard
+            if (newBoard[piece.position.y][piece.position.x].uid !== piece.uid) {
+                // We found the moved piece
+                // First remove the piece from board
+                board[piece.position.y][piece.position.x] = new Piece();
+
+                // We now find the same piece from the newBoard
+                let isFound = false;
+                for (let rowIndex = 0; rowIndex < newBoard.length; rowIndex++) {
+                    for (let columnIndex = 0; columnIndex < newBoard[rowIndex].length; columnIndex++) {
+                        if (newBoard[rowIndex][columnIndex].uid === piece.uid) {
+                            // We found the corresponding piece from newBoard
+                            // assign this position to piece
+                            piece.position.fromData(newBoard[rowIndex][columnIndex].position);
+                            isFound = true;
+                            break;
+                        }
+                    }
+
+                    if (isFound)
+                        break;
+                }
+
+                // Check if the new position is occupied by an opposite piece
+                if (board[piece.position.y][piece.position.x].uid !== -1 &&
+                    board[piece.position.y][piece.position.x].color !== piece.color) {
+
+                    // We first remove this piece from remainingPiece
+                    remainingPieces["W"] = remainingPieces["W"].filter(element => element.uid !== board[piece.position.y][piece.position.x].uid);
+                }
+
+                // We now can add the moved piece back to the board
+                board[piece.position.y][piece.position.x].fromData(piece);
+
+                break;
+            }
+        }
+        // End of AI's turn
         console.log(`Back in game.tsx and flipping back to player's turn!`);
+
+        // Calculate availableMoves for each piece on the board
+        board.forEach(row => {
+            row.forEach(piece => {
+                if (piece.uid !== -1) {
+                    if (piece.name === "King")
+                        piece.availableMoves(board, remainingPieces[piece.color === "B" ? "W" : "B"]);
+                    else
+                        piece.availableMoves(board);
+                }
+            })
+        });
+
+        // Because board and remainingPieces are mutually exclusive, we have to
+        // iterate through both remainingPieces and board and recalculate availableMoves
+        this.syncRemainingPieceswithBoard(board, remainingPieces);
+        Piece.restrictMovement(board, remainingPieces);
+        this.syncBoardwithRemainingPieces(board, remainingPieces);
+
+        // Log each side's piece count
+        console.log(`Black Piece Count: ${remainingPieces["B"].length}`)
+        console.log(`White Piece Count: ${remainingPieces["W"].length}`)
 
         return [board, remainingPieces];
     }
@@ -390,8 +521,12 @@ export class Game extends React.Component<{}, GameStates> {
             <div className="game">
                 {boardElement}
                 <div className="game-info">
-                    <div>{/* status */}</div>
-                    <div>{/* TODO */}</div>
+                    {/* {React.createElement(
+                        Popup,
+                        {
+                            onClick: (name: string) => alert(`FUCK YEAH ${name}`)
+                        }
+                    )} */}
                 </div>
             </div>
         );
