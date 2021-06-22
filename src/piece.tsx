@@ -116,6 +116,8 @@ export class Piece {
      * we remove possibilities that may make the King in check, (King is not attacked) or
      * possibilities that may make the King be still in check (King is attacked)
      * 
+     * In addition, both King pieces are set their attacked variables here
+     * 
      * The modification is done by reference on remainingPieces
     */
     static restrictMovement(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
@@ -125,6 +127,10 @@ export class Piece {
                 let kingPiece = remainingPieces["W"][i];
                 let attackingPiece: Piece | undefined = undefined;
                 let moreThanOneAttack: boolean = false;
+
+                // First we set kingPiece to be not attacked
+                kingPiece.attacked = false;
+
                 /*
                     An attack can be blocked if:
                     - There's only one attacking piece
@@ -153,6 +159,7 @@ export class Piece {
                             if (board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].name === "Knight" &&
                                 board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].color !== kingPiece.color) {
                                 knightAttackFound = true;
+                                kingPiece.attacked = true;
                                 attackingPiece = board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset];
                                 break;
                             }
@@ -213,7 +220,10 @@ export class Piece {
                                             moreThanOneAttack = true;
                                             break;
                                         }
+
+                                        // Otherwise we have our first attacking piece
                                         attackingPiece = currentPiece;
+                                        kingPiece.attacked = true;
                                         break;
                                     }
                                     else {
@@ -307,205 +317,6 @@ export class Piece {
                 else if (moreThanOneAttack) {
                     // Remove all moves and attacks from every piece except the King
                     remainingPieces["W"].forEach(piece => {
-                        if (piece.name !== "King") {
-                            piece._moves = [];
-                            piece._attacks = [];
-                        }
-                    })
-                }
-
-                break;
-            }
-        }
-
-        // Now for Black Pieces
-        for (let i = 0; i < remainingPieces["B"].length; i++) {
-            if (remainingPieces["B"][i].name === "King") {
-                let kingPiece = remainingPieces["B"][i];
-                let attackingPiece: Piece | undefined = undefined;
-                let moreThanOneAttack: boolean = false;
-                /*
-                    An attack can be blocked if:
-                    - There's only one attacking piece
-
-                    If there is a chance where two or more attacking pieces
-                    that are found, we remove possible blocking moves
-                */
-
-                // Check if there's a hidden knight attacking the King
-                let knightAttackFound = false;
-                for (let xOffset = -2; xOffset <= 2; xOffset++) {
-                    if (xOffset === 0)
-                        continue;
-
-                    for (let yOffset = -2; yOffset <= 2; yOffset++) {
-                        if (yOffset === 0)
-                            continue;
-
-                        if (xOffset === yOffset && xOffset === 0)
-                            continue;
-
-                        // Ensure the position is on the board
-                        if ((kingPiece.position.x + xOffset >= 0 && kingPiece.position.x + xOffset <= 7) &&
-                            (kingPiece.position.y + yOffset >= 0 && kingPiece.position.y + yOffset <= 7)) {
-                            // Check if the position is the opposite-colored knight piece
-                            if (board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].name === "Knight" &&
-                                board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].color !== kingPiece.color) {
-                                knightAttackFound = true;
-                                attackingPiece = board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset];
-                                break;
-                            }
-                        }
-
-                        if (knightAttackFound)
-                            break;
-                    }
-                }
-
-                /* 
-                    We first check for open checks
-                    The case where the King is in check also relies on
-                    this case
-
-                    Open checks occur on clear line of sights,
-                    so for each direction, 
-                    we record every same-colored piece and stop on encountering
-                    an opposite-colored piece
-                */
-                // We now iterate through 8 line of sights
-                for (let xStep = -1; xStep <= 1; xStep++) {
-                    for (let yStep = -1; yStep <= 1; yStep++) {
-
-                        // Exclude 0 0 case
-                        if (xStep === yStep && xStep === 0)
-                            continue;
-
-                        // Define the xy-direction
-                        let xStart = kingPiece.position.x;
-                        let yStart = kingPiece.position.y;
-
-                        // Define cache for same-colored piece and opposite-colored piece
-                        let pathPositions: Array<Position> = [];
-                        let sameBlockingPieces: Array<Piece> = [];
-                        let potentialAttackingPiece: Piece = new Piece();
-
-                        // Ensure we're looping within board boundaries
-                        while ((xStart + xStep >= 0 && xStart + xStep <= 7) &&
-                            (yStart + yStep >= 0 && yStart + yStep <= 7)) {
-
-                            xStart += xStep;
-                            yStart += yStep;
-
-                            let currentPiece = board[yStart][xStart];
-
-                            if (currentPiece.uid !== -1) {
-                                if (currentPiece.color === kingPiece.color)
-                                    sameBlockingPieces.push(currentPiece);
-                                else {
-                                    if (["Pawn", "Knight"].includes(currentPiece.name))
-                                        break;
-                                    // If we haven't found any same-colored pieces
-                                    // but instead encountered a linear movement opposite piece
-                                    if (sameBlockingPieces.length === 0) {
-                                        // Check if there's already an attacking piece
-                                        if (attackingPiece !== undefined) {
-                                            moreThanOneAttack = true;
-                                            break;
-                                        }
-                                        attackingPiece = currentPiece;
-                                        break;
-                                    }
-                                    else {
-                                        potentialAttackingPiece = currentPiece;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            pathPositions.push(new Position(xStart, yStart));
-                        }
-                        if (moreThanOneAttack)
-                            break;
-
-                        // If we have reached here, 
-                        // either we encountered an opposite piece
-                        // or we reach the edge of the board
-
-                        // We reached the edge - we can continue to the next line of sight
-                        if (potentialAttackingPiece.uid === -1)
-                            continue;
-
-                        // We found a potential open check
-                        // Go through each encountered same colored pieces
-                        // and filter out those which makes the King to be checked
-                        sameBlockingPieces.forEach(piece => {
-                            piece._moves = piece.moves.filter(moves => {
-                                return pathPositions.findIndex(position => moves.x === position.x && moves.y === position.y) !== -1;
-                            });
-
-                            // Update this to the remainingPieces as well
-                            let index = remainingPieces["B"].findIndex(remain => remain.uid === piece.uid);
-
-                            remainingPieces["B"][index]._moves = piece.moves;
-                        });
-                    }
-                    if (moreThanOneAttack)
-                        break;
-                }
-
-                // When there's only one attacking piece,
-                // Eating the attacking piece is valid
-                if (!moreThanOneAttack && attackingPiece !== undefined) {
-                    // Here we can assume that attackingPiece is passed in
-
-                    // If the attacking piece needs a clear line of sight
-                    if (attackingPiece.name !== "Knight") {
-                        // Generate a list of possible block positions
-                        let blockPositions: Array<Position> = [];
-                        // Define the x-direction and step
-                        let xStart = kingPiece.position.x;
-                        let xStep = kingPiece.position.x < attackingPiece.position.x ? 1
-                            : kingPiece.position.x === attackingPiece.position.x ? 0 : -1;
-                        // Define the y-direction and step
-                        let yStart = kingPiece.position.y;
-                        let yStep = kingPiece.position.y < attackingPiece.position.y ? 1
-                            : kingPiece.position.y === attackingPiece.position.y ? 0 : -1;
-
-                        xStart += xStep;
-                        yStart += yStep;
-                        while (attackingPiece.position.x !== xStart && attackingPiece.position.y !== yStart) {
-                            blockPositions.push(new Position(xStart, yStart));
-                            xStart += xStep;
-                            yStart += yStep;
-                        }
-
-                        // Go through each piece and clear moves that are not able to block
-                        remainingPieces["B"].forEach(piece => {
-                            if (piece.name !== "King") {
-                                piece._moves = piece.moves.filter(blockingMoves => {
-                                    // Keep moves that can block the attack
-                                    return blockPositions.findIndex(moves => moves.x === blockingMoves.x && moves.y === blockingMoves.y) !== -1;
-                                });
-                            }
-                        })
-                    }
-
-                    // Attacking a piece also prevents checking
-                    // Now check it can attack the attacking piece instead
-                    remainingPieces["B"].forEach(piece => {
-                        if (piece.name !== "King") {
-                            piece._attacks = piece.attacks.filter(attackMoves => {
-                                // Keep moves that can block the attack
-                                return (attackingPiece as Piece).position.x === attackMoves.x
-                                    && (attackingPiece as Piece).position.y === attackMoves.y;
-                            });
-                        }
-                    })
-                }
-                // There is more than one attacker - only King is able to move
-                else if (moreThanOneAttack) {
-                    // Remove all moves and attacks from every piece except the King
-                    remainingPieces["B"].forEach(piece => {
                         if (piece.name !== "King") {
                             piece._moves = [];
                             piece._attacks = [];

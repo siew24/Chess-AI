@@ -12,7 +12,8 @@ interface BoardProps {
     remainingPieces: {
         [key: string]: Array<Piece>
     },
-    board: Array<Array<Piece>>
+    board: Array<Array<Piece>>,
+    boardHighlight: Array<Array<boolean>>
 }
 
 export class Board extends React.Component<BoardProps> {
@@ -21,10 +22,12 @@ export class Board extends React.Component<BoardProps> {
         return true;
     }
 
-    renderSquare(i: number, j: number) {
+    renderSquare(key: number, i: number, j: number) {
         return React.createElement(
             Square,
             {
+                key: key,
+                toHighlight: this.props.boardHighlight[i][j],
                 value: this.props.board[i][j],
                 onClick: () => {
                     if (!this.props.isHolding)
@@ -49,6 +52,7 @@ export class Board extends React.Component<BoardProps> {
                         elements.push(React.createElement(
                             'td',
                             {
+                                key: (i * 10) + j,
                                 className: "board-empty"
                             }
                         ));
@@ -57,18 +61,22 @@ export class Board extends React.Component<BoardProps> {
                     elements.push(React.createElement(
                         'td',
                         {
+                            key: (i * 10) + (j + 1),
                             className: "board-edge-top"
                         },
                         String.fromCharCode('a'.charCodeAt(0) + j)));
 
                     if (j === 7) {
                         elements.push(React.createElement(
-                            'td'
+                            'td',
+                            {
+                                key: (i * 10) + (j + 2)
+                            }
                         ));
                     }
                 }
 
-                rows.push(React.createElement('tr', { className: "board-row" }, elements));
+                rows.push(React.createElement('tr', { className: "board-row", key: i + 100 }, elements));
                 elements = [];
             }
 
@@ -77,18 +85,20 @@ export class Board extends React.Component<BoardProps> {
                     elements.push(React.createElement(
                         'td',
                         {
+                            key: ((i + 1) * 10) + j,
                             className: "board-edge-left"
                         },
                         8 - i
                     ));
                 }
 
-                elements.push(this.renderSquare(i, j));
+                elements.push(this.renderSquare(((i + 1) * 10) + (j + 1), i, j));
 
                 if (j === 7) {
                     elements.push(React.createElement(
                         'td',
                         {
+                            key: ((i + 1) * 10) + (j + 2),
                             className: "board-edge-right"
                         },
                         8 - i
@@ -97,7 +107,7 @@ export class Board extends React.Component<BoardProps> {
 
             }
 
-            rows.push(React.createElement('tr', { className: "board-row" }, elements));
+            rows.push(React.createElement('tr', { className: "board-row", key: i + 100 + 1 }, elements));
 
             if (i === 7) {
                 elements = [];
@@ -106,6 +116,7 @@ export class Board extends React.Component<BoardProps> {
                         elements.push(React.createElement(
                             'td',
                             {
+                                key: ((i + 2) * 10) + j,
                                 className: "board-empty"
                             }
                         ));
@@ -114,18 +125,22 @@ export class Board extends React.Component<BoardProps> {
                     elements.push(React.createElement(
                         'td',
                         {
+                            key: ((i + 1) * 10) + (j + 1),
                             className: "board-edge-bottom"
                         },
                         String.fromCharCode('a'.charCodeAt(0) + j)));
 
                     if (j === 7) {
                         elements.push(React.createElement(
-                            'td'
+                            'td',
+                            {
+                                key: ((i + 1) * 10) + (j + 2)
+                            }
                         ));
                     }
                 }
 
-                rows.push(React.createElement('tr', { className: "board-row" }, elements));
+                rows.push(React.createElement('tr', { className: "board-row", key: i + 100 + 2 }, elements));
 
             }
         }
@@ -133,7 +148,11 @@ export class Board extends React.Component<BoardProps> {
         return React.createElement('div',
             null,
             React.createElement('table',
-                { className: "board" },
-                rows));
+                null,
+                React.createElement('tbody',
+                    {
+                        className: "board",
+                    },
+                    rows)));
     }
 }

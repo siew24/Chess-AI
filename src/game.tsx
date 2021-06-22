@@ -13,6 +13,7 @@ interface GameStates {
     holdingPiece: Piece,
     isHolding: boolean,
     board: Array<Array<Piece>>,
+    boardHighlight: Array<Array<boolean>>,
     remainingPieces: {
         [key: string]: Array<Piece>
     }
@@ -30,6 +31,8 @@ export class Game extends React.Component<{}, GameStates> {
             isHolding: false,
             board: Array<Array<Piece>>(8).fill([]).map(() => arrayPiece.slice()
                 .map(() => new Piece())),
+            boardHighlight: Array<Array<boolean>>(8).fill([]).map(
+                () => Array<boolean>(8).fill(false).map(() => false)),
             remainingPieces: {
                 "W": Array<Piece>(16).fill(new Piece()).map(() => new Piece()),
                 "B": Array<Piece>(16).fill(new Piece()).map(() => new Piece()),
@@ -127,14 +130,21 @@ export class Game extends React.Component<{}, GameStates> {
         });
     }
 
+    /** Throws in current board and remainingPieces state to the AI */
     _handleAI(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): Array<Array<Piece>> {
         // After some calculation, a best board state from the AI will be given here
         return doSomethingHere(board, remainingPieces);
     }
 
-    /**
-     * Updates remainingPieces with the newer info from the Board
+    /** 
+     * Checks (Win, Draw) states
+     * @returns {number} -1, if Player won, 0, if it's a draw, 1, if the AI won, and any other number if there's no valid end state
      */
+    _checkEndState(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): number {
+        return 2;
+    }
+
+    /** Updates remainingPieces with the newer info from the Board */
     syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
         remainingPieces["W"].forEach(piece => {
             for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
@@ -160,9 +170,7 @@ export class Game extends React.Component<{}, GameStates> {
         );
     }
 
-    /**
-     * Updates the Board with the newer info from remainingPieces
-     */
+    /** Updates the Board with the newer info from remainingPieces */
     syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
         remainingPieces["W"].forEach(piece => {
             for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
@@ -227,6 +235,23 @@ export class Game extends React.Component<{}, GameStates> {
 
             board[i][j] = new Piece();  // Clear the cell
 
+            // Fetch a copy of boardHighlight
+            let boardHighlight = this.state.boardHighlight.map(row => {
+                return row.map(square => square);
+            })
+
+            // Set all available moves to be highlighted
+            holdingPiece.moves.forEach(move => {
+                boardHighlight[move.y][move.x] = true;
+            });
+
+            // Set the state
+            this.setState({
+                boardHighlight: boardHighlight.map(row => {
+                    return row.map(square => square);
+                })
+            });
+
             console.log(`Holding: ${holdingPiece.name}`)
             console.log(`${holdingPiece.name}'s moves (id: ${holdingPiece.uid}):`)
 
@@ -261,6 +286,19 @@ export class Game extends React.Component<{}, GameStates> {
                 board[i][j].fromData(currentPiece);
                 this.setState({ holdingPiece: new Piece() });
                 this.setState({ isHolding: false });
+
+                // Remove move highlights
+                let boardHighlight = this.state.boardHighlight.map(row => {
+                    return row.map(square => square);
+                });
+
+                currentPiece.moves.forEach(move => boardHighlight[move.y][move.x] = false);
+
+                this.setState({
+                    boardHighlight: boardHighlight.map(row => {
+                        return row.map(square => square);
+                    })
+                });
 
                 // Hacky way to modify state
                 this.state.board.forEach((row, rowIndex) => {
@@ -333,6 +371,19 @@ export class Game extends React.Component<{}, GameStates> {
         let currentPiece = new Piece();
         currentPiece.fromData(this.state.holdingPiece);
 
+        // Remove move highlights
+        let boardHighlight = this.state.boardHighlight.map(row => {
+            return row.map(square => square);
+        });
+
+        currentPiece.moves.forEach(move => boardHighlight[move.y][move.x] = false);
+
+        this.setState({
+            boardHighlight: boardHighlight.map(row => {
+                return row.map(square => square);
+            })
+        });
+
         // Check if the placement is an attack move
         // We have checked that it's either a move or an attack move
         // on the above
@@ -360,15 +411,6 @@ export class Game extends React.Component<{}, GameStates> {
         currentPiece.position = new Position(j, i);
         currentPiece.setMoved();
 
-        // Mark if the attacked piece is a King
-        for (let index = 0; index < currentPiece.attacks.length; index++) {
-            let position = currentPiece.attacks[index];
-            if (board[position.y][position.x].name === "King") {
-                board[position.y][position.x].attacked = true;
-                break;
-            }
-        }
-
         // Fill the current square with data of currentPiece
         board[i][j].fromData(currentPiece);
 
@@ -385,7 +427,7 @@ export class Game extends React.Component<{}, GameStates> {
         });
 
         // Because board and remainingPieces are mutually exclusive, we have to
-        // iterate through both remainingPieces and board and recalculate availableMoves
+        // sync both variables
         this.syncRemainingPieceswithBoard(board, remainingPieces);
         Piece.restrictMovement(board, remainingPieces);
         this.syncBoardwithRemainingPieces(board, remainingPieces);
@@ -513,6 +555,7 @@ export class Game extends React.Component<{}, GameStates> {
                     onPiecePlace: (i: number, j: number) => this.onPiecePlace(i, j),
                     isHolding: this.state.isHolding,
                     board: this.state.board,
+                    boardHighlight: this.state.boardHighlight,
                     remainingPieces: this.state.remainingPieces
                 }
             )
