@@ -145,7 +145,7 @@ export class Game extends React.Component<{}, GameStates> {
     }
 
     /** Updates remainingPieces with the newer info from the Board */
-    syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
+    static syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
         remainingPieces["W"].forEach(piece => {
             for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
                 for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
@@ -171,7 +171,7 @@ export class Game extends React.Component<{}, GameStates> {
     }
 
     /** Updates the Board with the newer info from remainingPieces */
-    syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
+    static syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
         remainingPieces["W"].forEach(piece => {
             for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
                 for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
@@ -204,7 +204,7 @@ export class Game extends React.Component<{}, GameStates> {
                             });
                         }
 
-                        piece.position.fromData(board[rowIndex][columnIndex].position);
+                        board[piece.position.y][piece.position.x].fromData(piece);
                     }
                 }
             }
@@ -331,22 +331,23 @@ export class Game extends React.Component<{}, GameStates> {
                 })
             });
 
-            remainingPieces["W"].forEach((piece, index) => this.state.remainingPieces["W"][index].fromData(piece))
-            let toDeleteAmount = this.state.remainingPieces["W"].length - remainingPieces["W"].length;
+            this.state.remainingPieces["W"] = this.state.remainingPieces["W"].filter(piece => {
+                let index = remainingPieces["W"].findIndex(newPiece => newPiece.uid === piece.uid);
+                if (index !== -1) {
+                    piece.fromData(remainingPieces["W"][index]);
+                    return true;
+                }
+                return false;
+            });
 
-            while (toDeleteAmount > 0) {
-                this.state.remainingPieces["W"].pop();
-                toDeleteAmount--;
-            }
-
-
-            remainingPieces["B"].forEach((piece, index) => this.state.remainingPieces["B"][index].fromData(piece))
-            toDeleteAmount = this.state.remainingPieces["B"].length - remainingPieces["B"].length;
-
-            while (toDeleteAmount > 0) {
-                this.state.remainingPieces["B"].pop();
-                toDeleteAmount--;
-            }
+            this.state.remainingPieces["B"] = this.state.remainingPieces["B"].filter(piece => {
+                let index = remainingPieces["B"].findIndex(newPiece => newPiece.uid === piece.uid);
+                if (index !== -1) {
+                    piece.fromData(remainingPieces["B"][index]);
+                    return true;
+                }
+                return false;
+            });
         }
     }
 
@@ -415,11 +416,13 @@ export class Game extends React.Component<{}, GameStates> {
         board[i][j].fromData(currentPiece);
 
         // Calculate availableMoves for each piece on the board
+        // the King Pieces have to be the last to be calculated
+        let pieceList: Array<Piece> = [];
         board.forEach(row => {
             row.forEach(piece => {
                 if (piece.uid !== -1) {
                     if (piece.name === "King")
-                        piece.availableMoves(board, remainingPieces[piece.color === "B" ? "W" : "B"]);
+                        pieceList.push(piece);
                     else
                         piece.availableMoves(board);
                 }
@@ -427,10 +430,23 @@ export class Game extends React.Component<{}, GameStates> {
         });
 
         // Because board and remainingPieces are mutually exclusive, we have to
+        // iterate through both remainingPieces and board and recalculate availableMoves
+        Game.syncRemainingPieceswithBoard(board, remainingPieces);
+
+        if (pieceList[0].color === "B") {
+            pieceList[0].availableMoves(board, remainingPieces["W"]);
+            pieceList[1].availableMoves(board, remainingPieces["B"]);
+        }
+        else {
+            pieceList[1].availableMoves(board, remainingPieces["W"]);
+            pieceList[0].availableMoves(board, remainingPieces["B"]);
+        }
+
+        // Because board and remainingPieces are mutually exclusive, we have to
         // sync both variables
-        this.syncRemainingPieceswithBoard(board, remainingPieces);
+        Game.syncRemainingPieceswithBoard(board, remainingPieces);
         Piece.restrictMovement(board, remainingPieces);
-        this.syncBoardwithRemainingPieces(board, remainingPieces);
+        Game.syncBoardwithRemainingPieces(board, remainingPieces);
 
         // After a succesful move, it'll become the AI's turn
         this.setState({
@@ -488,12 +504,12 @@ export class Game extends React.Component<{}, GameStates> {
                             // assign this position to piece
                             piece.position.fromData(newBoard[rowIndex][columnIndex].position);
                             isFound = true;
-                            break;
+                            // break;
                         }
                     }
 
-                    if (isFound)
-                        break;
+                    // if (isFound)
+                    //     break;
                 }
 
                 // Check if the new position is occupied by an opposite piece
@@ -507,18 +523,20 @@ export class Game extends React.Component<{}, GameStates> {
                 // We now can add the moved piece back to the board
                 board[piece.position.y][piece.position.x].fromData(piece);
 
-                break;
+                // break;
             }
         }
         // End of AI's turn
         console.log(`Back in game.tsx and flipping back to player's turn!`);
 
         // Calculate availableMoves for each piece on the board
+        // the King Pieces have to be the last to be calculated
+        pieceList = [];
         board.forEach(row => {
             row.forEach(piece => {
                 if (piece.uid !== -1) {
                     if (piece.name === "King")
-                        piece.availableMoves(board, remainingPieces[piece.color === "B" ? "W" : "B"]);
+                        pieceList.push(piece);
                     else
                         piece.availableMoves(board);
                 }
@@ -527,9 +545,22 @@ export class Game extends React.Component<{}, GameStates> {
 
         // Because board and remainingPieces are mutually exclusive, we have to
         // iterate through both remainingPieces and board and recalculate availableMoves
-        this.syncRemainingPieceswithBoard(board, remainingPieces);
+        Game.syncRemainingPieceswithBoard(board, remainingPieces);
+
+        if (pieceList[0].color === "W") {
+            pieceList[0].availableMoves(board, remainingPieces["B"]);
+            pieceList[1].availableMoves(board, remainingPieces["W"]);
+        }
+        else {
+            pieceList[1].availableMoves(board, remainingPieces["B"]);
+            pieceList[0].availableMoves(board, remainingPieces["W"]);
+        }
+
+        // Because board and remainingPieces are mutually exclusive, we have to
+        // iterate through both remainingPieces and board and recalculate availableMoves
+        Game.syncRemainingPieceswithBoard(board, remainingPieces);
         Piece.restrictMovement(board, remainingPieces);
-        this.syncBoardwithRemainingPieces(board, remainingPieces);
+        Game.syncBoardwithRemainingPieces(board, remainingPieces);
 
         // Log each side's piece count
         console.log(`Black Piece Count: ${remainingPieces["B"].length}`)

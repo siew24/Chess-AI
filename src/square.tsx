@@ -9,13 +9,31 @@ interface SquareProps {
 }
 
 export function Square(props: SquareProps) {
+
+    let color: string = "";
+
+    if (props.value.uid !== -1 && props.value.name === "King" && props.value.color === "W") {
+        if (props.value.isAttacked)
+            color = "#ff0000";  // red
+        else
+            color = "#fff"; // white
+    }
+    else if (props.toHighlight) {
+        if (props.value.uid !== -1)
+            color = "#ff0000"; // red
+        else
+            color = "#00ff00"; // green
+    }
+    else
+        color = "#fff" // white
+
     return React.createElement(
         'td',
         {
             className: "square",
             onClick: props.onClick,
             style: {
-                background: props.toHighlight ? (props.value.uid !== -1 ? "#ff0000" : "#00ff00") : "#fff",
+                background: color,
                 border: "1px solid #999",
                 float: "left",
                 fontSize: "24px",
