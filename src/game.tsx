@@ -322,9 +322,9 @@ export class Game extends React.Component<{}, GameStates> {
             });
         });
 
-        console.log("Trying to pick up...");
+        //console.log("Trying to pick up...");
         if (this.state.holdingPiece.name === "" && board[i][j].name !== "" && board[i][j].color === "W") {
-            console.log(`Picked up ${board[i][j].name}`)
+            //console.log(`Picked up ${board[i][j].name}`)
             // console.log(`Position: ${board[i][j].position}`)
 
             this.setState({ isHolding: true });
@@ -353,10 +353,10 @@ export class Game extends React.Component<{}, GameStates> {
                 })
             });
 
-            console.log(`Holding: ${holdingPiece.name}`)
-            console.log(`${holdingPiece.name}'s moves (id: ${holdingPiece.uid}):`)
+            //console.log(`Holding: ${holdingPiece.name}`)
+            //console.log(`${holdingPiece.name}'s moves (id: ${holdingPiece.uid}):`)
 
-            console.dir(holdingPiece.moves);
+            //console.dir(holdingPiece.moves);
         }
 
         this.setState({ board: board });
@@ -378,7 +378,7 @@ export class Game extends React.Component<{}, GameStates> {
         // If the player is holding a piece
         if (this.state.holdingPiece.name !== "") {
 
-            console.log(`Trying to place it down...`);
+            //console.log(`Trying to place it down...`);
 
             let currentPiece = new Piece();
             currentPiece.fromData(this.state.holdingPiece);
@@ -419,14 +419,14 @@ export class Game extends React.Component<{}, GameStates> {
             // If the clicked area is an opposite color piece but not a valid attack move
             else if (board[i][j].name !== "" && board[i][j].color !== currentPiece.color &&
                 !currentPiece.attacks.find(value => value.x === j && value.y === i)) {
-                console.log("Not a valid attack move")
+                //console.log("Not a valid attack move")
                 return;
             }
             // If the clicked area is not a valid move
             else if (!currentPiece.moves.find(value => value.x === j && value.y === i))
                 return;
 
-            console.log(`Valid placement!`);
+            //console.log(`Valid placement!`);
             this.setState({ isHolding: false });
 
             // Remove move highlights
@@ -527,9 +527,9 @@ export class Game extends React.Component<{}, GameStates> {
                 if (!boardStateChanged)
                     return;
 
-                console.log("Detected player turn changed to false!");
-                console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
-                console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
+                //console.log("Detected player turn changed to false!");
+                //console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
+                //console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
 
                 // We now execute AI's logic
                 this._handleAI(this.state.board);
@@ -538,9 +538,9 @@ export class Game extends React.Component<{}, GameStates> {
                 return;
             }
 
-            console.log("Detected player turn changed to true!");
-            console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
-            console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
+            //console.log("Detected player turn changed to true!");
+            //console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
+            //console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
         }
 
     }

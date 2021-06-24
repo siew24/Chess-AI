@@ -1,4 +1,5 @@
 import React from "react";
+import { handleChessMovement } from "./board events/chess-movement";
 import { Game } from "./game";
 import { Piece, Position } from "./piece";
 // A file which how the AI should interact with the game
@@ -15,7 +16,7 @@ type boardWithEvaluation = {
 }
 
 // Check behind the piece
-function doublePawnChecking(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, color:string):number {
+function doublePawnChecking(remainingPieces: {[key: string]: Array<Piece>}, color:string):number {
     let count:number = 0;
 
     //Check the piece behind the pawn
@@ -23,7 +24,7 @@ function doublePawnChecking(board: Array<Array<Piece>>, remainingPieces: {[key: 
         case "W":
             remainingPieces["W"].forEach((piece) => {
                 if (piece.name.includes("Pawn") && piece.position.y > 1) {
-                    if (board[(piece.position.y)-1][piece.position.x].name.includes("Pawn") && board[(piece.position.y)-1][piece.position.x].color === color) {
+                    if (piece.attacks.length > 0) {
                         count++;
                     }
                 }
@@ -33,7 +34,7 @@ function doublePawnChecking(board: Array<Array<Piece>>, remainingPieces: {[key: 
         case "B":
             remainingPieces["B"].forEach((piece) => {
                 if (piece.name.includes("Pawn") && piece.position.y < 7) {
-                    if (board[(piece.position.y)+1][piece.position.y].name.includes("Pawn") && board[(piece.position.y)+1][piece.position.x].color === color) {
+                    if (piece.attacks.length > 0) {
                         count++;
                     }
                 }
@@ -164,7 +165,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
         }
     })
 
-    remainingPieceEvaluation = (blackRemaining-doublePawnChecking(board, remainingPieces, "B")) - (whiteRemaining-doublePawnChecking(board, remainingPieces, "W"));
+    remainingPieceEvaluation = (blackRemaining-doublePawnChecking(remainingPieces, "B")) - (whiteRemaining-doublePawnChecking(remainingPieces, "W"));
 
     // Calculate Pawn Center Control
     let blackCenterControl:number = 0, whiteCenterControl:number = 0;
@@ -328,7 +329,7 @@ function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
 // Best Move Function
-function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, depthLimit:number, depth:number, alpha:number, beta:number, state:number): boardWithEvaluation {
+function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, depth:number, alpha:number, beta:number, state:number): boardWithEvaluation {
     if (depth === 0) {
         let evaluation: number = boardEvaluation(board, remainingPieces);
 
@@ -340,50 +341,30 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
 
     if (state === 1) {
         remainingPieces['B'].forEach((piece) => {
+            
             let moveList: Array<Position> = piece.moves;
 
             for(let move of moveList){
 
-                // Add newBoard here
-                let newBoard = copyBoard(board);
+                let copyRemainingPieces = {
+                    "W": remainingPieces["W"].map(piece => {
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                            
+                            return newPiece;
+                    }),
+                    "B": remainingPieces["B"].map(piece => {
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                  
+                            return newPiece;
+                    })
+                };
 
-                // Castling Move
-                if (Math.abs(piece.position.x-move.x)===2 && piece.name === "King") {
-                    if(move.x === 2) {
-                        let rookPiece = newBoard[piece.position.y][0];
-                        newBoard[piece.position.y][0] = new Piece();
+                const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                        rookPiece.position = new Position(move.y, 3);
-                        
-                        newBoard[move.y][3] = new Piece();
-                        newBoard[move.y][3].fromData(rookPiece);
-                    } else {
-                        let rookPiece = newBoard[piece.position.y][7];
-                        newBoard[piece.position.y][7] = new Piece();
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 0);
 
-                        rookPiece.position = new Position(move.y, 5);
-                        
-                        newBoard[move.y][5] = new Piece();
-                        newBoard[move.y][5].fromData(rookPiece);
-                    }
-                }
-
-                newBoard[move.y][move.x].fromData(piece);
-                newBoard[piece.position.y][piece.position.x] = new Piece();
-                newBoard[move.y][move.x].position.fromData(move);
-
-                Game.syncRemainingPieceswithBoard(board, remainingPieces);
-                Piece.restrictMovement(board, remainingPieces);
-                Game.syncBoardwithRemainingPieces(board, remainingPieces);
-
-                /*newBoard[piece.position.y][piece.position.x] = new Piece();
-
-                piece.position = new Position(move.y, move.x);
-
-                newBoard[move.y][move.x] = new Piece();
-                newBoard[move.y][move.x].fromData(piece);*/
-
-                let evaluation: boardWithEvaluation = bestMove(newBoard, remainingPieces, depthLimit, depth-1, alpha, beta, 0);
                 let alphaHolder: number = alpha;
 
                 alphaHolder = Math.max(alphaHolder, evaluation.evaluation);
@@ -404,50 +385,30 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
     } 
     else {
         remainingPieces['W'].forEach((piece) => {
+        
             let moveList: Array<Position> = piece.moves;
 
             for(let move of moveList){
 
-                // Add newBoard here
-                let newBoard = copyBoard(board);
+                let copyRemainingPieces = {
+                    "W": remainingPieces["W"].map(piece => {
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                            
+                            return newPiece;
+                    }),
+                    "B": remainingPieces["B"].map(piece => {
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                  
+                            return newPiece;
+                    })
+                };
 
-                // Castling Move
-                if (Math.abs(piece.position.x-move.x)===2 && piece.name === "King") {
-                    if(move.x === 2) {
-                        let rookPiece = newBoard[piece.position.y][0];
-                        newBoard[piece.position.y][0] = new Piece();
+                const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                        rookPiece.position = new Position(move.y, 3);
-                        
-                        newBoard[move.y][3] = new Piece();
-                        newBoard[move.y][3].fromData(rookPiece);
-                    } else {
-                        let rookPiece = newBoard[piece.position.y][7];
-                        newBoard[piece.position.y][7] = new Piece();
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 1);
 
-                        rookPiece.position = new Position(move.y, 5);
-                        
-                        newBoard[move.y][5] = new Piece();
-                        newBoard[move.y][5].fromData(rookPiece);
-                    }
-                }
-
-                newBoard[move.y][move.x].fromData(piece);
-                newBoard[piece.position.y][piece.position.x] = new Piece();
-                newBoard[move.y][move.x].position.fromData(move);
-
-                Game.syncRemainingPieceswithBoard(board, remainingPieces);
-                Piece.restrictMovement(board, remainingPieces);
-                Game.syncBoardwithRemainingPieces(board, remainingPieces);
-
-                /*newBoard[piece.position.y][piece.position.x] = new Piece();
-
-                piece.position = new Position(move.y, move.x);
-                
-                newBoard[move.y][move.x] = new Piece();
-                newBoard[move.y][move.x].fromData(piece);*/
-
-                let evaluation: boardWithEvaluation = bestMove(newBoard, remainingPieces, depthLimit, depth-1, alpha, beta, 1);
                 let betaHolder: number = beta;
 
                 betaHolder = Math.min(betaHolder, evaluation.evaluation);
@@ -498,7 +459,7 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     board[movePiece.position.y][movePiece.position.x] = new Piece();
 
     // Set the movePiece's position to the new position
-    board[movePosition.y][movePosition.x].position.fromData(movePosition); */
+    board[movePosition.y][movePosition.x].position.fromData(movePosition);
 
     // let value = uniqueID();
 
@@ -506,9 +467,9 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     //     board[4][7].fromData(board[0][4]);
     //     board[4][7].position = new Position(7, 4);
     //     board[0][4] = new Piece();
-    // }
+    // }*/
 
-    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 1, 1, -99999, 99999, 1)
+    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 10, -99999, 99999, 1);
     return botMove.board;
 
     //return board;

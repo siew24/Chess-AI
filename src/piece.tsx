@@ -391,13 +391,14 @@ export class Piece {
                         newPiece.fromData(piece);
                         return newPiece;
                     }));
+
                     let copyRemaining = {
-                        "W": remainingPieces[color].map(piece => {
+                        "W": remainingPieces['W'].map(piece => {
                             let newPiece = new Piece();
                             newPiece.fromData(piece);
                             return newPiece;
                         }),
-                        "B": remainingPieces[oppositeColor].map(piece => {
+                        "B": remainingPieces['B'].map(piece => {
                             let newPiece = new Piece();
                             newPiece.fromData(piece);
                             return newPiece;

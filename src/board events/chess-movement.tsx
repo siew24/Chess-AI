@@ -4,7 +4,6 @@ import { Piece, Position } from "../piece";
 export function handleChessMovement(movingPiece: Piece, targetPosition: Position, board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> })
     : [Array<Array<Piece>>, { [key: string]: Array<Piece> }] {
 
-
     let playerColor = movingPiece.color;
     let opponentColor = playerColor === "B" ? "W" : "B";
 
@@ -26,9 +25,9 @@ export function handleChessMovement(movingPiece: Piece, targetPosition: Position
         remainingPieces[opponentColor] = remainingPieces[opponentColor].filter(piece => board[targetPosition.y][targetPosition.x].uid !== piece.uid);
     }
 
-    console.log("In handleChessMovement: ");
+    /*console.log("In handleChessMovement: ");
     console.log(`Black Pieces: ${remainingPieces["B"].length}`);
-    console.log(`White Pieces: ${remainingPieces["W"].length}`);
+    console.log(`White Pieces: ${remainingPieces["W"].length}`);*/
 
     // Before placing down the piece, check if it's a King and it's a castling move
     if (currentPiece.name === "King" && Math.abs(currentPiece.position.x - targetPosition.x) === 2) {

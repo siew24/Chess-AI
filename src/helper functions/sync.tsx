@@ -11,8 +11,8 @@ export function syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remaini
                 }
             }
         }
-    }
-    );
+    });
+
     remainingPieces["B"].forEach(piece => {
         for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
             for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
@@ -22,8 +22,7 @@ export function syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remaini
                 }
             }
         }
-    }
-    );
+    });
 }
 
 /** Updates the Board with the newer info from remainingPieces */
