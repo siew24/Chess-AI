@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Board } from './board';
+import { handleChessMovement } from './board events/chess-movement';
 import { Position, Piece } from './piece';
 import { doSomethingHere } from './AI';
 import { Popup } from './popup';
@@ -131,9 +132,162 @@ export class Game extends React.Component<{}, GameStates> {
     }
 
     /** Throws in current board and remainingPieces state to the AI */
-    _handleAI(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): Array<Array<Piece>> {
+    _handleAI(board: Array<Array<Piece>>): void {
+
+        // Get a copy of board state
+        let boardCopy = board.map(row => {
+            return row.map(piece => {
+                let newPiece = new Piece();
+                newPiece.fromData(piece);
+
+                return newPiece;
+            });
+        });
+
+        // Get a copy of remainingPieces state
+        let remainingPieces = {
+            "W": this.state.remainingPieces["W"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            }),
+            "B": this.state.remainingPieces["B"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            })
+        };
+
         // After some calculation, a best board state from the AI will be given here
-        return doSomethingHere(board, remainingPieces);
+        const AIBoard = doSomethingHere(boardCopy, remainingPieces);
+
+        // After AI evaluation, remainingPieces might be overwritten
+        // Recopy remainingPieces back
+        remainingPieces = {
+            "W": this.state.remainingPieces["W"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            }),
+            "B": this.state.remainingPieces["B"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            })
+        };
+
+        // By comparing AIBoard with Board, we can know which piece had been moved
+        // and because it's AI's turn, we know that the black piece is the moved piece
+
+        // Initialization
+        let currentPiece: Piece = new Piece();
+        let movePosition: Position = new Position();
+        let encounteredBlacks: Array<Piece> = [];
+        let isFound: boolean = false;
+
+        for (let rowIndex = 0; rowIndex < 8; rowIndex++) {
+            for (let columnIndex = 0; columnIndex < 8; columnIndex++) {
+                let oldSquare = board[rowIndex][columnIndex];
+                let newSquare = AIBoard[rowIndex][columnIndex];
+
+                // If they're empty or they're the same piece
+                if (oldSquare.uid === newSquare.uid)
+                    continue;
+
+                // They have different uid's
+                // Check if it's a black piece
+                if (newSquare.color === "B") {
+                    // This is the moved piece
+                    let index = -1;
+                    let start = false;
+                    let oldFound = false;
+                    for (rowIndex = 0; rowIndex < 8; rowIndex++) {
+                        for (columnIndex = 0; columnIndex < 8; columnIndex++) {
+                            if (board[rowIndex][columnIndex].uid !== -1 &&
+                                board[rowIndex][columnIndex].color === "B") {
+
+                                encounteredBlacks.push(new Piece());
+                                index++;
+                                encounteredBlacks[index].fromData(board[rowIndex][columnIndex]);
+
+                                if (encounteredBlacks[index].uid === newSquare.uid) {
+                                    oldFound = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (oldFound)
+                            break;
+                    }
+
+
+                    // Pass Piece data to currentPiece...
+                    currentPiece.fromData(encounteredBlacks[index]);
+
+                    // Clear the array
+                    encounteredBlacks = [];
+                    // ...and also the move position
+                    movePosition.fromData(newSquare.position);
+
+                    isFound = true;
+                    break;
+                }
+            }
+            if (isFound)
+                break;
+        }
+
+        // Get a copy of remainingPieces state
+        let copyRemainingPieces = {
+            "W": this.state.remainingPieces["W"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            }),
+            "B": this.state.remainingPieces["B"].map(value => {
+                let newPiece = new Piece();
+                newPiece.fromData(value);
+                return value;
+            })
+        };
+
+        // IF for some reason we didn't found any change
+        if (currentPiece.uid === -1) {
+            return;
+        }
+
+        const [newBoard, newRemainingPieces] = handleChessMovement(currentPiece, movePosition, board, copyRemainingPieces);
+
+        // Set board state
+        this.setState({
+            board: newBoard.map((row) => {
+                return row.map((piece) => {
+                    let newPiece = new Piece();
+                    newPiece.fromData(piece);
+
+                    return newPiece;
+                })
+            })
+        });
+
+        // Set remainingPieces state
+        this.setState({
+            remainingPieces: {
+                "W": newRemainingPieces["W"].map(piece => {
+                    let newPiece = new Piece();
+                    newPiece.fromData(piece);
+
+                    return newPiece;
+                }),
+
+                "B": newRemainingPieces["B"].map(piece => {
+                    let newPiece = new Piece();
+                    newPiece.fromData(piece);
+
+                    return newPiece;
+                })
+            }
+        });
     }
 
     /** 
@@ -141,74 +295,20 @@ export class Game extends React.Component<{}, GameStates> {
      * @returns {number} -1, if Player won, 0, if it's a draw, 1, if the AI won, and any other number if there's no valid end state
      */
     _checkEndState(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): number {
+
+        // First we check the obvious
+        // King is checkmated
+        for (let color of ["W", "B"]) {
+            let oppositeColor = color === "W" ? "B" : "W";
+
+            let index = remainingPieces[color].findIndex(piece => piece.name === "King");
+
+            // Because we're checking the board state, we only get a copy of the King piece
+            let kingPiece = new Piece();
+            kingPiece.fromData(remainingPieces[color][index]);
+        }
+
         return 2;
-    }
-
-    /** Updates remainingPieces with the newer info from the Board */
-    static syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
-        remainingPieces["W"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-                        // Fetch updated data from Board piece
-                        piece.fromData(board[rowIndex][columnIndex]);
-                    }
-                }
-            }
-        }
-        );
-        remainingPieces["B"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-                        // Fetch updated data from Board piece
-                        piece.fromData(board[rowIndex][columnIndex]);
-                    }
-                }
-            }
-        }
-        );
-    }
-
-    /** Updates the Board with the newer info from remainingPieces */
-    static syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
-        remainingPieces["W"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-                        // Update positions
-                        if (board[piece.position.y][piece.position.x].uid !== -1) {
-                            // An opposite piece has been eaten
-                            remainingPieces["B"] = remainingPieces["B"].filter(oppositePiece => {
-                                return oppositePiece.uid !== board[piece.position.y][piece.position.x].uid;
-                            });
-                        }
-
-                        board[piece.position.y][piece.position.x].fromData(piece);
-
-                    }
-                }
-            }
-        }
-
-        );
-        remainingPieces["B"].forEach(piece => {
-            for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
-                for (let columnIndex = 0; columnIndex < board[rowIndex].length; columnIndex++) {
-                    if (board[rowIndex][columnIndex].uid === piece.uid) {
-                        // Update positions
-                        if (board[piece.position.y][piece.position.x].uid !== -1) {
-                            // An opposite piece has been eaten
-                            remainingPieces["W"] = remainingPieces["W"].filter(oppositePiece => {
-                                return oppositePiece.uid !== board[piece.position.y][piece.position.x].uid;
-                            });
-                        }
-
-                        board[piece.position.y][piece.position.x].fromData(piece);
-                    }
-                }
-            }
-        });
     }
 
     onPiecePickup(i: number, j: number) {
@@ -222,6 +322,7 @@ export class Game extends React.Component<{}, GameStates> {
             });
         });
 
+        console.log("Trying to pick up...");
         if (this.state.holdingPiece.name === "" && board[i][j].name !== "" && board[i][j].color === "W") {
             console.log(`Picked up ${board[i][j].name}`)
             // console.log(`Position: ${board[i][j].position}`)
@@ -264,6 +365,7 @@ export class Game extends React.Component<{}, GameStates> {
     onPiecePlace(i: number, j: number) {
         // Here we'll handle how the player interacts with the game
 
+        // Copy the board
         let board = this.state.board.map(row => {
             return row.map(piece => {
                 let newPiece = new Piece();
@@ -300,10 +402,15 @@ export class Game extends React.Component<{}, GameStates> {
                     })
                 });
 
-                // Hacky way to modify state
-                this.state.board.forEach((row, rowIndex) => {
-                    row.forEach((piece, columnIndex) => {
-                        piece.fromData(board[rowIndex][columnIndex]);
+                // Modify board state
+                this.setState({
+                    board: board.map((row) => {
+                        return row.map((piece) => {
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+
+                            return newPiece;
+                        })
                     })
                 });
 
@@ -322,251 +429,120 @@ export class Game extends React.Component<{}, GameStates> {
             console.log(`Valid placement!`);
             this.setState({ isHolding: false });
 
-            const [newBoard, remainingPieces] = this.handleChessMovement(board, i, j);
+            // Remove move highlights
+            let boardHighlight = this.state.boardHighlight.map(row => {
+                return row.map(square => square);
+            });
 
-            // Hacky way to modify state
-            this.state.board.forEach((row, rowIndex) => {
-                row.forEach((piece, columnIndex) => {
-                    piece.fromData(newBoard[rowIndex][columnIndex]);
+            currentPiece.moves.forEach(move => boardHighlight[move.y][move.x] = false);
+
+            this.setState({
+                boardHighlight: boardHighlight.map(row => {
+                    return row.map(square => square);
                 })
             });
 
-            this.state.remainingPieces["W"] = this.state.remainingPieces["W"].filter(piece => {
-                let index = remainingPieces["W"].findIndex(newPiece => newPiece.uid === piece.uid);
-                if (index !== -1) {
-                    piece.fromData(remainingPieces["W"][index]);
-                    return true;
-                }
-                return false;
+            // Get a copy of remainingPieces state
+            let copyRemainingPieces = {
+                "W": this.state.remainingPieces["W"].map(value => {
+                    let newPiece = new Piece();
+                    newPiece.fromData(value);
+                    return value;
+                }),
+                "B": this.state.remainingPieces["B"].map(value => {
+                    let newPiece = new Piece();
+                    newPiece.fromData(value);
+                    return value;
+                })
+            };
+
+            const [newBoard, remainingPieces] = handleChessMovement(currentPiece, new Position(j, i), board, copyRemainingPieces);
+
+            this.setState({ holdingPiece: new Piece() });
+
+            // Set board state
+            this.setState({
+                board: newBoard.map((row) => {
+                    return row.map((piece) => {
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
+                    })
+                })
             });
 
-            this.state.remainingPieces["B"] = this.state.remainingPieces["B"].filter(piece => {
-                let index = remainingPieces["B"].findIndex(newPiece => newPiece.uid === piece.uid);
-                if (index !== -1) {
-                    piece.fromData(remainingPieces["B"][index]);
-                    return true;
+            // Set remainingPieces state
+            this.setState({
+                remainingPieces: {
+                    "W": remainingPieces["W"].map(piece => {
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
+                    }),
+
+                    "B": remainingPieces["B"].map(piece => {
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
+                    })
                 }
-                return false;
             });
+
+            // To prevent player from doing anything until AI is done
+            this.setState({ playerTurn: false });
         }
     }
 
-    handleChessMovement(board: Array<Array<Piece>>, i: number, j: number)
-        : [Array<Array<Piece>>, { [key: string]: Array<Piece> }] {
+    componentDidUpdate(_: {}, prevState: GameStates) {
+        // Check if it's AI's turn
+        if (!this.state.isHolding) {
+            if (!this.state.playerTurn) {
 
-        // Get a copy of remainingPieces state
-        let remainingPieces = {
-            "W": this.state.remainingPieces["W"].map(value => {
-                let newPiece = new Piece();
-                newPiece.fromData(value);
-                return value;
-            }),
-            "B": this.state.remainingPieces["B"].map(value => {
-                let newPiece = new Piece();
-                newPiece.fromData(value);
-                return value;
-            })
-        };
+                let boardStateChanged = false;
 
-        // Get a copy of holdingPiece
-        let currentPiece = new Piece();
-        currentPiece.fromData(this.state.holdingPiece);
+                for (let rowIndex = 0; rowIndex < prevState.board.length; rowIndex++) {
+                    for (let columnIndex = 0; columnIndex < prevState.board[rowIndex].length; columnIndex++) {
+                        // We now check one by one if they're the same
+                        let oldPiece = new Piece();
+                        let newPiece = new Piece();
 
-        // Remove move highlights
-        let boardHighlight = this.state.boardHighlight.map(row => {
-            return row.map(square => square);
-        });
+                        oldPiece.fromData(prevState.board[rowIndex][columnIndex]);
+                        newPiece.fromData(this.state.board[rowIndex][columnIndex]);
 
-        currentPiece.moves.forEach(move => boardHighlight[move.y][move.x] = false);
-
-        this.setState({
-            boardHighlight: boardHighlight.map(row => {
-                return row.map(square => square);
-            })
-        });
-
-        // Check if the placement is an attack move
-        // We have checked that it's either a move or an attack move
-        // on the above
-        if (board[i][j].name !== "") {
-            // remove the unique piece from remainingPieces
-            remainingPieces["B"] = remainingPieces["B"].filter(piece => board[i][j].uid !== piece.uid);
-        }
-
-        // Before placing down the piece, check if it's a King and it's a castling move
-        if (currentPiece.name === "King" && Math.abs(currentPiece.position.x - j) === 2) {
-            // Move the rook as well
-            if (j < 4) {
-                board[i][j + 1].fromData(board[i][0]);
-                board[i][j + 1].position = new Position(j + 1, i);
-                board[i][0] = new Piece();
-            }
-            else if (j > 4) {
-                board[i][j - 1].fromData(board[i][7]);
-                board[i][j - 1].position = new Position(j - 1, i);
-                board[i][7] = new Piece();
-            }
-        }
-
-        // Place down the piece
-        currentPiece.position = new Position(j, i);
-        currentPiece.setMoved();
-
-        // Fill the current square with data of currentPiece
-        board[i][j].fromData(currentPiece);
-
-        // Calculate availableMoves for each piece on the board
-        // the King Pieces have to be the last to be calculated
-        let pieceList: Array<Piece> = [];
-        board.forEach(row => {
-            row.forEach(piece => {
-                if (piece.uid !== -1) {
-                    if (piece.name === "King")
-                        pieceList.push(piece);
-                    else
-                        piece.availableMoves(board);
-                }
-            })
-        });
-
-        // Because board and remainingPieces are mutually exclusive, we have to
-        // iterate through both remainingPieces and board and recalculate availableMoves
-        Game.syncRemainingPieceswithBoard(board, remainingPieces);
-
-        if (pieceList[0].color === "B") {
-            pieceList[0].availableMoves(board, remainingPieces["W"]);
-            pieceList[1].availableMoves(board, remainingPieces["B"]);
-        }
-        else {
-            pieceList[1].availableMoves(board, remainingPieces["W"]);
-            pieceList[0].availableMoves(board, remainingPieces["B"]);
-        }
-
-        // Because board and remainingPieces are mutually exclusive, we have to
-        // sync both variables
-        Game.syncRemainingPieceswithBoard(board, remainingPieces);
-        Piece.restrictMovement(board, remainingPieces);
-        Game.syncBoardwithRemainingPieces(board, remainingPieces);
-
-        // After a succesful move, it'll become the AI's turn
-        this.setState({
-            holdingPiece: new Piece()
-        });
-
-        console.log(`AI is currently calculating the best move...`);
-
-        // We'll pass by value into _handleAI
-        // Right now deep cloning everything to new variables
-        let remainingCopy = {
-            "W": remainingPieces["W"].map(value => {
-                let newPiece = new Piece();
-                newPiece.fromData(value);
-                return value;
-            }),
-            "B": remainingPieces["B"].map(value => {
-                let newPiece = new Piece();
-                newPiece.fromData(value);
-                return value;
-            })
-        };
-
-        let boardCopy: Array<Array<Piece>> = [];
-
-        board.forEach((row, columnIndex) => {
-            boardCopy.push([]);
-            row.forEach((piece, rowIndex) => {
-                boardCopy[columnIndex].push(new Piece());
-                boardCopy[columnIndex][rowIndex].fromData(piece);
-            });
-        });
-
-        const newBoard = this._handleAI(boardCopy, remainingCopy);
-
-        // Using remainingPieces, we can determine which piece has been moved/eaten
-        // Update remainingPiece according to the moved piece and the possibly eaten piece
-        for (let pieceIndex = 0; pieceIndex < remainingPieces["B"].length; pieceIndex++) {
-
-            // Get a reference of the current piece
-            let piece = remainingPieces["B"][pieceIndex];
-
-            // If the piece's position is not on the newBoard
-            if (newBoard[piece.position.y][piece.position.x].uid !== piece.uid) {
-                // We found the moved piece
-                // First remove the piece from board
-                board[piece.position.y][piece.position.x] = new Piece();
-
-                // We now find the same piece from the newBoard
-                let isFound = false;
-                for (let rowIndex = 0; rowIndex < newBoard.length; rowIndex++) {
-                    for (let columnIndex = 0; columnIndex < newBoard[rowIndex].length; columnIndex++) {
-                        if (newBoard[rowIndex][columnIndex].uid === piece.uid) {
-                            // We found the corresponding piece from newBoard
-                            // assign this position to piece
-                            piece.position.fromData(newBoard[rowIndex][columnIndex].position);
-                            isFound = true;
-                            // break;
+                        // If they're not equal
+                        if (!Piece.isEqual(oldPiece, newPiece)) {
+                            boardStateChanged = true;
+                            break;
                         }
+
                     }
 
-                    // if (isFound)
-                    //     break;
+                    if (boardStateChanged)
+                        break;
                 }
 
-                // Check if the new position is occupied by an opposite piece
-                if (board[piece.position.y][piece.position.x].uid !== -1 &&
-                    board[piece.position.y][piece.position.x].color !== piece.color) {
+                if (!boardStateChanged)
+                    return;
 
-                    // We first remove this piece from remainingPiece
-                    remainingPieces["W"] = remainingPieces["W"].filter(element => element.uid !== board[piece.position.y][piece.position.x].uid);
-                }
+                console.log("Detected player turn changed to false!");
+                console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
+                console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
 
-                // We now can add the moved piece back to the board
-                board[piece.position.y][piece.position.x].fromData(piece);
+                // We now execute AI's logic
+                this._handleAI(this.state.board);
+                this.setState({ playerTurn: true });
 
-                // break;
+                return;
             }
-        }
-        // End of AI's turn
-        console.log(`Back in game.tsx and flipping back to player's turn!`);
 
-        // Calculate availableMoves for each piece on the board
-        // the King Pieces have to be the last to be calculated
-        pieceList = [];
-        board.forEach(row => {
-            row.forEach(piece => {
-                if (piece.uid !== -1) {
-                    if (piece.name === "King")
-                        pieceList.push(piece);
-                    else
-                        piece.availableMoves(board);
-                }
-            })
-        });
-
-        // Because board and remainingPieces are mutually exclusive, we have to
-        // iterate through both remainingPieces and board and recalculate availableMoves
-        Game.syncRemainingPieceswithBoard(board, remainingPieces);
-
-        if (pieceList[0].color === "W") {
-            pieceList[0].availableMoves(board, remainingPieces["B"]);
-            pieceList[1].availableMoves(board, remainingPieces["W"]);
-        }
-        else {
-            pieceList[1].availableMoves(board, remainingPieces["B"]);
-            pieceList[0].availableMoves(board, remainingPieces["W"]);
+            console.log("Detected player turn changed to true!");
+            console.log(`Black Pieces: ${this.state.remainingPieces["B"].length}`);
+            console.log(`White Pieces: ${this.state.remainingPieces["W"].length}`);
         }
 
-        // Because board and remainingPieces are mutually exclusive, we have to
-        // iterate through both remainingPieces and board and recalculate availableMoves
-        Game.syncRemainingPieceswithBoard(board, remainingPieces);
-        Piece.restrictMovement(board, remainingPieces);
-        Game.syncBoardwithRemainingPieces(board, remainingPieces);
-
-        // Log each side's piece count
-        console.log(`Black Piece Count: ${remainingPieces["B"].length}`)
-        console.log(`White Piece Count: ${remainingPieces["W"].length}`)
-
-        return [board, remainingPieces];
     }
 
     render() {

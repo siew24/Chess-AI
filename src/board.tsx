@@ -30,10 +30,12 @@ export class Board extends React.Component<BoardProps> {
                 toHighlight: this.props.boardHighlight[i][j],
                 value: this.props.board[i][j],
                 onClick: () => {
-                    if (!this.props.isHolding)
-                        this.props.onPiecePickup(i, j)
-                    else
-                        this.props.onPiecePlace(i, j)
+                    if (this.props.playerTurn) {
+                        if (!this.props.isHolding)
+                            this.props.onPiecePickup(i, j)
+                        else
+                            this.props.onPiecePlace(i, j)
+                    }
                 }
             },
             null
