@@ -16,11 +16,11 @@ type boardWithEvaluation = {
 }
 
 // Check behind the piece
-function doublePawnChecking(remainingPieces: {[key: string]: Array<Piece>}, color:string):number {
-    let count:number = 0;
+function doublePawnChecking(remainingPieces: { [key: string]: Array<Piece> }, color: string): number {
+    let count: number = 0;
 
     //Check the piece behind the pawn
-    switch(color) {
+    switch (color) {
         case "W":
             remainingPieces["W"].forEach((piece) => {
                 if (piece.name.includes("Pawn") && piece.position.y > 1) {
@@ -30,7 +30,7 @@ function doublePawnChecking(remainingPieces: {[key: string]: Array<Piece>}, colo
                 }
             })
             break;
-        
+
         case "B":
             remainingPieces["B"].forEach((piece) => {
                 if (piece.name.includes("Pawn") && piece.position.y < 7) {
@@ -47,11 +47,11 @@ function doublePawnChecking(remainingPieces: {[key: string]: Array<Piece>}, colo
 
 // Center Distance Calculation
 function centerDistance(piecePosition: Position): Array<number> {
-    let center: Array<Array<number>> = [[4,4],[4,5],[5,4],[5,5]];
-    let distanceArray: Array<number> = [0,0,0,0];
+    let center: Array<Array<number>> = [[4, 4], [4, 5], [5, 4], [5, 5]];
+    let distanceArray: Array<number> = [0, 0, 0, 0];
 
-    for (let i = 0; i<4; i++) {
-        distanceArray[i] = Math.sqrt(Math.pow(((piecePosition.x+1)-center[i][0]),2) + Math.pow(((piecePosition.y+1)-center[i][1]),2));
+    for (let i = 0; i < 4; i++) {
+        distanceArray[i] = Math.sqrt(Math.pow(((piecePosition.x + 1) - center[i][0]), 2) + Math.pow(((piecePosition.y + 1) - center[i][1]), 2));
     }
 
     return distanceArray;
@@ -61,11 +61,11 @@ function centerDistance(piecePosition: Position): Array<number> {
 function pieceComparison(board: Array<Array<Piece>>, attackingPiece: Piece): number {
     let value: number = 0;
 
-    switch(attackingPiece.name) {
+    switch (attackingPiece.name) {
         case "Pawn":
             value = 1;
             break;
-            
+
         case "Knight":
             value = 3;
             break;
@@ -84,11 +84,11 @@ function pieceComparison(board: Array<Array<Piece>>, attackingPiece: Piece): num
     }
 
     attackingPiece.attacks.forEach((attackMove) => {
-        switch(board[attackMove.y][attackMove.x].name) {
+        switch (board[attackMove.y][attackMove.x].name) {
             case "Pawn":
                 value += 1;
                 break;
-                
+
             case "Knight":
                 value += 3;
                 break;
@@ -111,18 +111,18 @@ function pieceComparison(board: Array<Array<Piece>>, attackingPiece: Piece): num
 }
 
 // Evaluation function
-function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}):number {
-    let finalEvaluation:number = 0, remainingPieceEvaluation:number = 0, pawnCenterControlEvaluation:number = 0, attackingPieceEvaluation:number = 0;
-    
+function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): number {
+    let finalEvaluation: number = 0, remainingPieceEvaluation: number = 0, pawnCenterControlEvaluation: number = 0, attackingPieceEvaluation: number = 0;
+
     //Calculating remaining piece evaluation
-    let blackRemaining:number = 0, whiteRemaining:number = 0;
+    let blackRemaining: number = 0, whiteRemaining: number = 0;
 
     remainingPieces["W"].forEach((piece) => {
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 whiteRemaining += 1;
                 break;
-            
+
             case "Knight": //Knight
                 whiteRemaining += 3;
                 break;
@@ -142,11 +142,11 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
     })
 
     remainingPieces["B"].forEach((piece) => {
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 blackRemaining += 1;
                 break;
-            
+
             case "Knight": //Knight
                 blackRemaining += 3;
                 break;
@@ -165,13 +165,13 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
         }
     })
 
-    remainingPieceEvaluation = (blackRemaining-doublePawnChecking(remainingPieces, "B")) - (whiteRemaining-doublePawnChecking(remainingPieces, "W"));
+    remainingPieceEvaluation = (blackRemaining - doublePawnChecking(remainingPieces, "B")) - (whiteRemaining - doublePawnChecking(remainingPieces, "W"));
 
     // Calculate Pawn Center Control
-    let blackCenterControl:number = 0, whiteCenterControl:number = 0;
+    let blackCenterControl: number = 0, whiteCenterControl: number = 0;
 
     remainingPieces["W"].forEach((piece) => {
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 let pawnControl: Array<number> = centerDistance(piece.position);
 
@@ -182,7 +182,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
                 whiteCenterControl = 40 - whiteCenterControl;
 
                 break;
-            
+
             case "Knight": //Knight
                 let knightControl: Array<number> = centerDistance(piece.position);
 
@@ -213,7 +213,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
                 }
 
                 whiteCenterControl = 37 - whiteCenterControl;
-                
+
                 break;
 
             case "Queen": //Queen
@@ -230,7 +230,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
     })
 
     remainingPieces["B"].forEach((piece) => {
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 let pawnControl: Array<number> = centerDistance(piece.position);
 
@@ -241,7 +241,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
                 blackCenterControl = 40 - blackCenterControl;
 
                 break;
-            
+
             case "Knight": //Knight
                 let knightControl: Array<number> = centerDistance(piece.position);
 
@@ -272,7 +272,7 @@ function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: {[key: str
                 }
 
                 blackCenterControl = 37 - blackCenterControl;
-                
+
                 break;
 
             case "Queen": //Queen
@@ -329,7 +329,7 @@ function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
 // Best Move Function
-function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, depth:number, alpha:number, beta:number, state:number): boardWithEvaluation {
+function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, depth: number, alpha: number, beta: number, state: number): boardWithEvaluation {
     if (depth === 0) {
         let evaluation: number = boardEvaluation(board, remainingPieces);
 
@@ -341,29 +341,29 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
 
     if (state === 1) {
         remainingPieces['B'].forEach((piece) => {
-            
+
             let moveList: Array<Position> = piece.moves;
 
-            for(let move of moveList){
+            for (let move of moveList) {
 
                 let copyRemainingPieces = {
                     "W": remainingPieces["W"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                            
-                            return newPiece;
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
                     }),
                     "B": remainingPieces["B"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                  
-                            return newPiece;
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
                     })
                 };
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 0);
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth - 1, alpha, beta, 0);
 
                 let alphaHolder: number = alpha;
 
@@ -382,32 +382,32 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
             "board": bestBoard,
             "evaluation": alpha
         }
-    } 
+    }
     else {
         remainingPieces['W'].forEach((piece) => {
-        
+
             let moveList: Array<Position> = piece.moves;
 
-            for(let move of moveList){
+            for (let move of moveList) {
 
                 let copyRemainingPieces = {
                     "W": remainingPieces["W"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                            
-                            return newPiece;
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
                     }),
                     "B": remainingPieces["B"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                  
-                            return newPiece;
+                        let newPiece = new Piece();
+                        newPiece.fromData(piece);
+
+                        return newPiece;
                     })
                 };
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 1);
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth - 1, alpha, beta, 1);
 
                 let betaHolder: number = beta;
 
@@ -460,6 +460,16 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
 
     // Set the movePiece's position to the new position
     board[movePosition.y][movePosition.x].position.fromData(movePosition);
+
+    // If the moved piece is a pawn
+    if (board[movePosition.y][movePosition.x].name === "Pawn" && board[movePosition.y][movePosition.x].position.y === 7) {
+        // Get a random name for promotion
+        max = ["Bishop", "Knight", "Rook", "Queen"].length;
+        let name = ["Bishop", "Knight", "Rook", "Queen"][Math.floor(Math.random() * max)];
+        const [newBoard, newRemainingPieces] = promotePawn(name, movePosition, board, remainingPieces)
+
+        return newBoard;
+    }
 
     // let value = uniqueID();
 

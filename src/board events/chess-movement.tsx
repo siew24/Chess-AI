@@ -69,7 +69,11 @@ export function handleChessMovement(movingPiece: Piece, targetPosition: Position
     // iterate through both remainingPieces and board and recalculate availableMoves
     syncRemainingPieceswithBoard(board, remainingPieces);
 
-    if (pieceList[0].color === opponentColor) {
+    // If a King Piece has been eaten
+    if (pieceList.length === 1) {
+        pieceList[0].availableMoves(board, remainingPieces[playerColor]);
+    }
+    else if (pieceList[0].color === opponentColor) {
         pieceList[0].availableMoves(board, remainingPieces[playerColor]);
         pieceList[1].availableMoves(board, remainingPieces[opponentColor]);
     }
