@@ -4,7 +4,6 @@ import { Piece, Position } from "../piece";
 export function handleChessMovement(movingPiece: Piece, targetPosition: Position, board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> })
     : [Array<Array<Piece>>, { [key: string]: Array<Piece> }] {
 
-
     let playerColor = movingPiece.color;
     let opponentColor = playerColor === "B" ? "W" : "B";
 
@@ -70,7 +69,11 @@ export function handleChessMovement(movingPiece: Piece, targetPosition: Position
     // iterate through both remainingPieces and board and recalculate availableMoves
     syncRemainingPieceswithBoard(board, remainingPieces);
 
-    if (pieceList[0].color === opponentColor) {
+    // If a King Piece has been eaten
+    if (pieceList.length === 1) {
+        pieceList[0].availableMoves(board, remainingPieces[playerColor]);
+    }
+    else if (pieceList[0].color === opponentColor) {
         pieceList[0].availableMoves(board, remainingPieces[playerColor]);
         pieceList[1].availableMoves(board, remainingPieces[opponentColor]);
     }

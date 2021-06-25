@@ -98,6 +98,8 @@ export class Piece {
 
     set attacked(value: boolean) { this._isAttacked = value; }
 
+    promote(name: string) { this._name = name; }
+
     setMoved() {
         this._hasMoved = true;
     }
@@ -313,6 +315,17 @@ export class Piece {
                                 // Update this to the remainingPieces as well
                                 let index = remainingPieces[color].findIndex(remain => remain.uid === piece.uid);
 
+                                if (index === -1) {
+                                    console.log(`Can't find Blocking Piece: ${piece.name} @ ${String.fromCharCode("A".charCodeAt(0) + piece.position.x)}${8 - piece.position.y} in remainingPieces["${piece.color}"]`);
+                                    console.log(`The current board state (Current: ${piece.color}):`);
+                                    console.dir(board);
+                                    console.log(`${color} Pieces:`)
+                                    console.dir(remainingPieces[color]);
+                                    console.log(`${oppositeColor} Pieces:`)
+                                    console.dir(remainingPieces[oppositeColor]);
+
+                                }
+
                                 remainingPieces[color][index]._moves = piece.moves;
                                 remainingPieces[color][index]._attacks = piece.moves;
                             });
@@ -392,12 +405,12 @@ export class Piece {
                         return newPiece;
                     }));
                     let copyRemaining = {
-                        "W": remainingPieces[color].map(piece => {
+                        "W": remainingPieces["W"].map(piece => {
                             let newPiece = new Piece();
                             newPiece.fromData(piece);
                             return newPiece;
                         }),
-                        "B": remainingPieces[oppositeColor].map(piece => {
+                        "B": remainingPieces["B"].map(piece => {
                             let newPiece = new Piece();
                             newPiece.fromData(piece);
                             return newPiece;
