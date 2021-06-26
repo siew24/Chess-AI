@@ -187,6 +187,26 @@ function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
     return copiedBoard;
 };
 
+// Copy Remaining Pieces Function
+function cloneRemainingPieces(remainingPieces: {[key: string]: Array<Piece>}): {[key: string]: Array<Piece>} {
+
+    return {
+        "W": remainingPieces["W"].map(piece => {
+                let newPiece = new Piece();
+                newPiece.fromData(piece);
+                
+                return newPiece;
+        }),
+        "B": remainingPieces["B"].map(piece => {
+                let newPiece = new Piece();
+                newPiece.fromData(piece);
+      
+                return newPiece;
+        })
+    };
+
+}
+
 // To hold the best board state
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
@@ -214,24 +234,30 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
 
             for(let move of moveList){
 
-                let copyRemainingPieces = {
-                    "W": remainingPieces["W"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                            
-                            return newPiece;
-                    }),
-                    "B": remainingPieces["B"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                  
-                            return newPiece;
-                    })
-                };
+                let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 0);
+                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
+
+                if (newBoard[move.y][move.x].name === "Pawn" && move.y === 7) {
+                    
+                    let evaluationHold = -Infinity;
+
+                    ["Bishop", "Knight", "Rook", "Queen"].forEach((promotion) => {
+                        const [promotionBoard, promotionRemainingPieces] = promotePawn(promotion, move, newBoard, newRemainingPieces);
+
+                        let promotionEvaluation = boardEvaluation(promotionRemainingPieces);
+
+                        if (evaluationHold < promotionEvaluation) {
+                            evaluationHold = promotionEvaluation;
+                            returnBoard = promotionBoard;
+                            returnRemainingPieces = promotionRemainingPieces;
+                        }
+                    })
+                }
+
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth-1, alpha, beta, 0);
 
                 let alphaHolder: number = alpha;
 
@@ -249,7 +275,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                 }
 
                 if (depth === 3) {
-                    bestBoard = copyBoard(newBoard);
+                    bestBoard = copyBoard(returnBoard);
                 }
             }
         })
@@ -269,24 +295,30 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
 
             for(let move of moveList){
 
-                let copyRemainingPieces = {
-                    "W": remainingPieces["W"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                            
-                            return newPiece;
-                    }),
-                    "B": remainingPieces["B"].map(piece => {
-                            let newPiece = new Piece();
-                            newPiece.fromData(piece);
-                  
-                            return newPiece;
-                    })
-                };
+                let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
+
+                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
+
+                if (newBoard[move.y][move.x].name === "Pawn" && move.y === 0) {
+                    
+                    let evaluationHold = Infinity;
+
+                    ["Bishop", "Knight", "Rook", "Queen"].forEach((promotion) => {
+                        const [promotionBoard, promotionRemainingPieces] = promotePawn(promotion, move, newBoard, newRemainingPieces);
+
+                        let promotionEvaluation = boardEvaluation(promotionRemainingPieces);
+
+                        if (evaluationHold < promotionEvaluation) {
+                            evaluationHold = promotionEvaluation;
+                            returnBoard = promotionBoard;
+                            returnRemainingPieces = promotionRemainingPieces;
+                        }
+                    })
+                }
                 
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 1);
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth-1, alpha, beta, 1);
 
                 let betaHolder: number = beta;
 
@@ -304,7 +336,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                 }
 
                 if (depth === 3) {
-                    bestBoard = copyBoard(newBoard);
+                    bestBoard = copyBoard(returnBoard);
                 }
             }
         })
@@ -317,14 +349,6 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
         }
     }
 }
-
-import { Piece } from "./piece";
-// A file which how the AI should interact with the game
-
-// var uniqueID = (function () {
-//     var id = 1;
-//     return function () { return id++; };  // Return and increment
-// })();
 
 // This function should return a 2D array
 export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): Array<Array<Piece>> {
@@ -358,7 +382,6 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     // Set the movePiece's position to the new position
     board[movePosition.y][movePosition.x].position.fromData(movePosition);
 
-<<<<<<< HEAD
     // let value = uniqueID();
 
     // if (value === 1) {
@@ -369,25 +392,6 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
 
     let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 3, -Infinity, Infinity, 1);
     return botMove.board;
-=======
-    // If the moved piece is a pawn
-    if (board[movePosition.y][movePosition.x].name === "Pawn" && board[movePosition.y][movePosition.x].position.y === 7) {
-        // Get a random name for promotion
-        max = ["Bishop", "Knight", "Rook", "Queen"].length;
-        let name = ["Bishop", "Knight", "Rook", "Queen"][Math.floor(Math.random() * max)];
-        const [newBoard,] = promotePawn(name, movePosition, board, remainingPieces)
-
-        return newBoard;
-    }
-
-    // let value = uniqueID();
-
-    // if (value === 1) {
-    //     board[2][3].fromData(board[1][3]);
-    //     board[2][3].position = new Position(3, 2);
-    //     board[1][3] = new Piece();
-    // }
->>>>>>> 4b82e07845a53e941cdebb0b754be4296f52bf76
 
     //return board;
 }
