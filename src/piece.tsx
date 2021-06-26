@@ -1,6 +1,4 @@
-import React from 'react';
-import { Game } from './game';
-import { syncBoardwithRemainingPieces, syncRemainingPieceswithBoard } from './helper functions/sync';
+import { handleChessMovement } from './board events/chess-movement';
 
 export class Position {
     x: number;
@@ -126,7 +124,30 @@ export class Piece {
      * 
      * The modification is done by reference on remainingPieces
     */
-    static restrictMovement(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, isRecursive: boolean = false): void {
+    static restrictMovement(argBoard: Array<Array<Piece>>, argRemainingPieces: { [key: string]: Array<Piece> }, isRecursive: boolean = false): { [key: string]: Array<Piece> } {
+
+        // First we get a copy of both
+        let board = argBoard.map(row => row.map(piece => {
+            let newPiece = new Piece();
+            newPiece.fromData(piece);
+
+            return newPiece;
+        }))
+        let remainingPieces: { [key: string]: Array<Piece> } = {
+            "W": argRemainingPieces["W"].map(piece => {
+                let newPiece = new Piece();
+                newPiece.fromData(piece);
+
+                return newPiece;
+            }),
+            "B": argRemainingPieces["B"].map(piece => {
+                let newPiece = new Piece();
+                newPiece.fromData(piece);
+
+                return newPiece;
+            })
+        }
+
         // Find out if the King is in check
         for (let color of ["W", "B"]) {
             let oppositeColor = color === "W" ? "B" : "W";
@@ -154,15 +175,16 @@ export class Piece {
                         if (xOffset === 0)
                             continue;
 
+                        if (knightAttackFound)
+                            break;
+
                         for (let yOffset = -2; yOffset <= 2; yOffset++) {
                             if (yOffset === 0)
                                 continue;
 
-                            if (xOffset === yOffset && xOffset === 0)
-                                continue;
-
                             if (Math.abs(xOffset * yOffset) !== 2)
                                 continue;
+
 
                             // Ensure the position is on the board
                             if ((kingPiece.position.x + xOffset >= 0 && kingPiece.position.x + xOffset <= 7) &&
@@ -170,15 +192,13 @@ export class Piece {
                                 // Check if the position is the opposite-colored knight piece
                                 if (board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].name === "Knight" &&
                                     board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset].color !== kingPiece.color) {
+
                                     knightAttackFound = true;
                                     kingPiece.attacked = true;
                                     attackingPiece = board[kingPiece.position.y + yOffset][kingPiece.position.x + xOffset];
                                     break;
                                 }
                             }
-
-                            if (knightAttackFound)
-                                break;
                         }
                     }
 
@@ -375,14 +395,34 @@ export class Piece {
                         // Now check it can attack the attacking piece instead
                         remainingPieces[color].forEach(piece => {
                             if (piece.name !== "King") {
-                                piece._attacks = piece.attacks.filter(attackMoves => {
-                                    // Keep moves that can block the attack
-                                    return (attackingPiece as Piece).position.x === attackMoves.x
-                                        && (attackingPiece as Piece).position.y === attackMoves.y;
-                                });
+                                if (piece.name === "Pawn") {
+                                    piece._attacks = piece.attacks.filter(attackMoves => {
+                                        // Keep moves that can attack the attacker
+                                        return (attackingPiece as Piece).position.x === attackMoves.x
+                                            && (attackingPiece as Piece).position.y === attackMoves.y;
+                                    });
+                                    // Additionally, if the piece is a Pawn, it should not move if it
+                                    // can't attack
+                                    piece._moves = [];
+                                }
+                                else {
+                                    piece._attacks = piece.attacks.filter(attackMoves => {
+                                        // Keep moves that can attack the attacker
+                                        return (attackingPiece as Piece).position.x === attackMoves.x
+                                            && (attackingPiece as Piece).position.y === attackMoves.y;
+                                    });
 
-                                if (piece.name !== "Pawn")
-                                    piece._moves = piece.attacks;
+                                    // Now if there's no attacking moves, doesn't mean that the piece
+                                    // can't block.
+                                    // So we concat both move and attack arrays together if the attacker piece is not a knight
+                                    if ((attackingPiece as Piece).name !== "Knight") {
+                                        piece._moves = piece.attacks.concat(piece.moves);
+                                        piece._attacks = piece.moves;
+                                    }
+                                    // Otherwise these attacking moves are the only moveable positions
+                                    else
+                                        piece._moves = piece.attacks;
+                                }
                             }
                         });
                     }
@@ -421,65 +461,14 @@ export class Piece {
                     // one piece, we have to halt it by setting a flag
                     if (!isRecursive) {
                         kingPiece._moves = kingPiece.moves.filter(position => {
-                            let removedPiece: Piece | undefined;
-                            if (board[position.y][position.x].uid !== -1 && kingPiece.color !== board[position.y][position.x].color)
-                                copyRemaining[(oppositeColor as "B" | "W")] = copyRemaining[(oppositeColor as "W" | "B")].filter(piece => {
-                                    if (!Position.isEqual(piece.position, position))
-                                        return true;
 
-                                    removedPiece = new Piece();
-                                    removedPiece.fromData(piece);
-                                    return false;
-                                });
+                            let currentPiece = new Piece();
+                            currentPiece.fromData(kingPiece);
 
-                            // We move the piece in our copies
-                            copyBoard[position.y][position.x].fromData(kingPiece);
-                            copyBoard[position.y][position.x].position.fromData(position);
-                            copyBoard[kingPiece.position.y][kingPiece.position.x] = new Piece();
-
-
-                            // Calculate availableMoves for each piece on the board
-                            // the King Pieces have to be the last to be calculated
-                            let pieceList: Array<Piece> = [];
-                            copyBoard.forEach(row => {
-                                row.forEach(piece => {
-                                    if (piece.uid !== -1) {
-                                        if (piece.name === "King")
-                                            pieceList.push(piece);
-                                        else
-                                            piece.availableMoves(copyBoard);
-                                    }
-                                })
-                            });
-
-                            // Because board and remainingPieces are mutually exclusive, we have to
-                            // iterate through both remainingPieces and board and recalculate availableMoves
-                            syncRemainingPieceswithBoard(copyBoard, copyRemaining);
-
-                            if (pieceList[0].color === color) {
-                                pieceList[0].availableMoves(copyBoard, copyRemaining[(oppositeColor as "W" | "B")]);
-                                pieceList[1].availableMoves(copyBoard, copyRemaining[(color as "W" | "B")]);
-                            }
-                            else {
-                                pieceList[1].availableMoves(copyBoard, copyRemaining[(oppositeColor as "W" | "B")]);
-                                pieceList[0].availableMoves(copyBoard, copyRemaining[(color as "W" | "B")]);
-                            }
-
-                            // Because board and remainingPieces are mutually exclusive, we have to
-                            // iterate through both remainingPieces and board and recalculate availableMoves
-                            syncRemainingPieceswithBoard(copyBoard, copyRemaining);
-                            Piece.restrictMovement(copyBoard, copyRemaining, true);
-                            syncBoardwithRemainingPieces(copyBoard, copyRemaining);
+                            const [newBoard,] = handleChessMovement(currentPiece, position, copyBoard, copyRemaining, true)
 
                             // Now check if the result makes our king get checked
-                            let returnValue = !copyBoard[position.y][position.x].isAttacked;
-                            // Reset the board
-                            copyBoard[position.y][position.x] = new Piece();
-                            copyBoard[kingPiece.position.y][kingPiece.position.x].fromData(kingPiece);
-                            // Add back the removed piece
-                            if (removedPiece !== undefined) {
-                                copyRemaining[(oppositeColor as "W" | "B")].push(removedPiece);
-                            }
+                            let returnValue = !newBoard[position.y][position.x].isAttacked;
 
                             return returnValue;
                         });
@@ -489,6 +478,8 @@ export class Piece {
                 }
             }
         }
+
+        return remainingPieces;
     }
 
     static isEqual(leftPiece: Piece, rightPiece: Piece): boolean {

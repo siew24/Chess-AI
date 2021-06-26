@@ -34,8 +34,11 @@ export function checkEndState(color: string, remainingPieces: { [key: string]: A
     // We're assuming movement calculation has been done
     // check if this piece has no moves and it's been checked
     if (kingPiece.moves.length === 0) {
-        if (kingPiece.isAttacked)
-            return color === "B" ? -1 : 1;
+        if (kingPiece.isAttacked) {
+            // There are two or more pieces left - check if all other pieces has no moves
+            if (!remainingPieces[color].some(piece => piece.moves.length !== 0))
+                return color === "B" ? -1 : 1;
+        }
 
         // There are two cases when King has no moves:
         //  1) There are two or more pieces left of that color

@@ -1,12 +1,11 @@
-import React from "react";
 import { promotePawn } from "./board events/chess-pawn-promotion";
-import { Piece, Position } from "./piece";
+import { Piece } from "./piece";
 // A file which how the AI should interact with the game
 
-var uniqueID = (function () {
-    var id = 1;
-    return function () { return id++; };  // Return and increment
-})();
+// var uniqueID = (function () {
+//     var id = 1;
+//     return function () { return id++; };  // Return and increment
+// })();
 
 // This function should return a 2D array
 export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): Array<Array<Piece>> {
@@ -45,17 +44,17 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
         // Get a random name for promotion
         max = ["Bishop", "Knight", "Rook", "Queen"].length;
         let name = ["Bishop", "Knight", "Rook", "Queen"][Math.floor(Math.random() * max)];
-        const [newBoard, newRemainingPieces] = promotePawn(name, movePosition, board, remainingPieces)
+        const [newBoard,] = promotePawn(name, movePosition, board, remainingPieces)
 
         return newBoard;
     }
 
     // let value = uniqueID();
 
-    // if (value === 4) {
-    //     board[6][7].fromData(board[0][3]);
-    //     board[6][7].position = new Position(7, 6);
-    //     board[0][3] = new Piece();
+    // if (value === 1) {
+    //     board[2][3].fromData(board[1][3]);
+    //     board[2][3].position = new Position(3, 2);
+    //     board[1][3] = new Piece();
     // }
 
     return board;
