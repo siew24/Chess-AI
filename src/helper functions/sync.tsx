@@ -1,6 +1,10 @@
 import { Piece } from '../piece';
 
-/** Updates remainingPieces with the newer info from the Board */
+/** 
+ * Updates remainingPieces with the newer info from the Board
+ * 
+ * WARNING: This modifies remainingPieces, use with caution
+*/
 export function syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
     remainingPieces["W"].forEach(piece => {
         for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {
@@ -25,7 +29,11 @@ export function syncRemainingPieceswithBoard(board: Array<Array<Piece>>, remaini
     });
 }
 
-/** Updates the Board with the newer info from remainingPieces */
+/** 
+ * Updates the Board with the newer info from remainingPieces 
+ * 
+ * WARNING: This modifies Board, use with caution
+*/
 export function syncBoardwithRemainingPieces(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): void {
     remainingPieces["W"].forEach(piece => {
         for (let rowIndex = 0; rowIndex < board.length; rowIndex++) {

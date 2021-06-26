@@ -8,7 +8,6 @@ import { doSomethingHere, modifyPieceValue } from './AI';
 import './index.css';
 import { endGamePopup, promotionPopup } from './popup';
 import { promotePawn } from './board events/chess-pawn-promotion';
-import { createDebuggerStatement } from 'typescript';
 
 // Game should handle player states
 
@@ -72,7 +71,6 @@ export class Game extends React.Component<{}, GameStates> {
         const layout = [
             ["Rook", "Knight", "Bishop", "Queen", "King", "Bishop", "Knight", "Rook"],
             ["Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn", "Pawn"]];
-
 
         // Iterate through the layout and intialize remainingPieces
         layout.forEach((row, rowIndex) => {
@@ -220,14 +218,7 @@ export class Game extends React.Component<{}, GameStates> {
      * @returns {boolean} true if end state has been set, false otherwise
      */
     _validateEndState(color: string): boolean {
-        // Get a copy of both states
-        let board = this.state.board.map(row => {
-            return row.map(piece => {
-                let newPiece = new Piece();
-                newPiece.fromData(piece);
-                return newPiece;
-            });
-        });
+        // Get a copy of remainingPieces
         let remainingPieces = {
             "W": this.state.remainingPieces["W"].map(piece => {
                 let newPiece = new Piece();
@@ -335,7 +326,6 @@ export class Game extends React.Component<{}, GameStates> {
                 if (newSquare.color === "B") {
                     // This is the moved piece
                     let index = -1;
-                    let start = false;
                     let oldFound = false;
                     for (rowIndex = 0; rowIndex < 8; rowIndex++) {
                         for (columnIndex = 0; columnIndex < 8; columnIndex++) {
@@ -429,9 +419,6 @@ export class Game extends React.Component<{}, GameStates> {
                     })
                 }
             });
-
-            if (this._validateEndState(currentPiece.color === "B" ? "W" : "B"))
-                this.setState({ endPopup: true });
             return;
         }
 
@@ -465,9 +452,6 @@ export class Game extends React.Component<{}, GameStates> {
                 })
             }
         });
-
-        if (this._validateEndState(currentPiece.color === "B" ? "W" : "B"))
-            this.setState({ endPopup: true });
     }
 
     onPiecePickup(i: number, j: number) {
@@ -664,20 +648,23 @@ export class Game extends React.Component<{}, GameStates> {
 
                 // To prevent player from doing anything until AI is done
                 this.setState({ playerTurn: false });
-
-                if (this._validateEndState(currentPiece.color === "B" ? "W" : "B"))
-                    this.setState({ endPopup: true });
             }
         }
     }
 
-    componentDidUpdate(_: {}, prevState: GameStates) {
+    componentDidUpdate() {
+
         // Check if end state has reached
         if (!this.state.endStateReached) {
             // Check if there's a promotion event happening
             if (!this.state.isPromoting && !this.state.pawnPromotionPopup) {
                 // Check is player is holding
                 if (!this.state.isHolding) {
+                    if (this._validateEndState(!this.state.playerTurn ? "B" : "W")) {
+                        this.setState({ endPopup: true });
+                        return;
+                    }
+
                     // Check if it's AI's turn
                     if (!this.state.playerTurn) {
                         console.log("Detected player turn changed to false!");

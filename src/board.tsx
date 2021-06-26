@@ -1,8 +1,7 @@
 import React from 'react';
 
-import { doSomethingHere } from './AI';
 import { Square } from './square';
-import { Piece, Position } from './piece';
+import { Piece } from './piece';
 
 interface BoardProps {
     playerTurn: boolean,

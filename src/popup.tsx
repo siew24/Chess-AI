@@ -4,7 +4,7 @@ interface PopupProps {
     onClick: Function
 };
 
-function popupWrapper(props: PopupProps, elements: Array<JSX.Element>) {
+function popupWrapper(elements: Array<JSX.Element>) {
 
     return React.createElement(
         "div",
@@ -56,6 +56,7 @@ export function promotionPopup(props: PopupProps) {
     let buttonElements = possiblePieces.map((name, index) => React.createElement(
         "button",
         {
+            key: index,
             style: {
                 gridArea: "item" + (index + 1),
                 justifySelf: "center"
@@ -63,10 +64,11 @@ export function promotionPopup(props: PopupProps) {
             onClick: () => props.onClick(name)
         }, name));
 
-    return popupWrapper(props,
+    return popupWrapper(
         [React.createElement(
             "h1",
             {
+                key: 5,
                 style: {
                     // position: "inherit",
                     // "text-align": "center",
@@ -87,10 +89,11 @@ interface endGamePopupProps extends PopupProps {
 }
 
 export function endGamePopup(props: endGamePopupProps) {
-    return popupWrapper(props,
+    return popupWrapper(
         [React.createElement(
             "h1",
             {
+                key: 0,
                 style: {
                     // position: "inherit",
                     // "text-align": "center",
@@ -106,6 +109,7 @@ export function endGamePopup(props: endGamePopupProps) {
         React.createElement(
             "button",
             {
+                key: 1,
                 style: {
                     gridArea: "item1",
                     justifySelf: "center"
