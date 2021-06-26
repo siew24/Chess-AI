@@ -4,7 +4,7 @@ import { Board } from './board';
 import { handleChessMovement } from './board events/chess-movement';
 import { checkEndState } from './board events/chess-end-state';
 import { Position, Piece } from './piece';
-import { doSomethingHere } from './AI';
+import { doSomethingHere, modifyPieceValue } from './AI';
 import './index.css';
 import { endGamePopup, promotionPopup } from './popup';
 import { promotePawn } from './board events/chess-pawn-promotion';
@@ -78,7 +78,9 @@ export class Game extends React.Component<{}, GameStates> {
         layout.forEach((row, rowIndex) => {
             row.forEach((pieceName, columnIndex) => {
                 remainingPieces["B"][(row.length * rowIndex) + columnIndex] = new Piece(pieceName, "B", new Position(columnIndex, rowIndex), false);
+                modifyPieceValue(remainingPieces["B"][(row.length * rowIndex) + columnIndex]);
                 remainingPieces["W"][(row.length * rowIndex) + columnIndex] = new Piece(pieceName, "W", new Position(columnIndex, 7 - rowIndex), false);
+                modifyPieceValue(remainingPieces["W"][(row.length * rowIndex) + columnIndex]);
             })
         });
 

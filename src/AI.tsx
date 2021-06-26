@@ -1,309 +1,170 @@
-import React from "react";
 import { handleChessMovement } from "./board events/chess-movement";
-import { Game } from "./game";
 import { Piece, Position } from "./piece";
+
 // A file which how the AI should interact with the game
 
-var uniqueID = (function () {
-    var id = 1;
-    return function () { return id++; };  // Return and increment
-})();
 
-// Type for return both board and evaluation
+// Custom type to return board, evaluation, alpha and beta value for each state
 type boardWithEvaluation = {
     board: Array<Array<Piece>>,
-    evaluation: number
+    evaluation: number,
+    alpha: number,
+    beta: number
 }
 
-// Check behind the piece
-function doublePawnChecking(remainingPieces: { [key: string]: Array<Piece> }, color: string): number {
-    let count: number = 0;
+// Piece-Square Table
+const pst: {[key: string]: Array<Array<number>>} = {
+            'Pawn': [[ 0,  0,  0,  0,  0,  0,  0,  0],
+                     [50, 50, 50, 50, 50, 50, 50, 50],
+                     [10, 10, 20, 30, 30, 20, 10, 10],
+                     [ 5,  5, 10, 25, 25, 10,  5,  5],  // PST for Pawn Piece
+                     [ 0,  0,  0, 20, 20,  0,  0,  0],
+                     [ 5, -5,-10,  0,  0,-10, -5,  5],
+                     [ 5, 10, 10,-20,-20, 10, 10,  5],
+                     [ 0,  0,  0,  0,  0,  0,  0,  0]],
+                    
+            'Knight': [[-50, -40, -30, -30, -30, -30, -40, -50],
+                       [-40, -20,   0,   0,   0,   0, -20, -40],
+                       [-30,   0,  10,  15,  15,  10,   0, -30],
+                       [-30,   5,  15,  20,  20,  15,   5, -30],    // PST for Knight Piece
+                       [-30,   0,  15,  20,  20,  15,   0, -30],
+                       [-30,   5,  10,  15,  15,  10,   5, -30],
+                       [-40, -20,   0,   5,   5,   0, -20, -40],
+                       [-50, -40, -30, -30, -30, -30, -40, -50]],
+                    
+            'Bishop': [[-20, -10, -10, -10, -10, -10, -10, -20],
+                       [-10,   0,   0,   0,   0,   0,   0, -10],
+                       [-10,   0,   0,   0,   0,   0,   0, -10],
+                       [-10,   5,   5,  10,  10,   5,   5, -10],    // PST for Bishop Piece
+                       [-10,   0,  10,  10,  10,  10,   0, -10],
+                       [-10,  10,  10,  10,  10,  10,  10, -10],
+                       [-10,   5,   0,   0,   0,   0,   5, -10],
+                       [-20, -10, -10, -10, -10, -10, -10, -20]],
+                    
+            'Rook': [[ 0,  0,  0,  0,  0,  0,  0,  0],
+                     [ 5, 10, 10, 10, 10, 10, 10,  5],
+                     [-5,  0,  0,  0,  0,  0,  0, -5],
+                     [-5,  0,  0,  0,  0,  0,  5, -5],  // PST for Rook Piece
+                     [-5,  0,  0,  0,  0,  0,  0, -5],
+                     [-5,  0,  0,  0,  0,  0,  0, -5],
+                     [-5,  0,  0,  0,  0,  0,  0, -5],
+                     [ 0,  0,  0,  5,  5,  0,  0,  0]],
+                    
+            'Queen': [[-20, -10, -10, -5, -5, -10, -10, -20],
+                      [-10,   0,   0,  0,  0,   0,   0, -10],
+                      [-10,   0,   5,  5,  5,   5,   0, -10],
+                      [ -5,   0,   5,  5,  5,   5,   0,  -5],   // PST for Queen Piece
+                      [  0,   0,   5,  5,  5,   5,   0,  -5],
+                      [-10,   5,   5,  5,  5,   5,   0,  -5],
+                      [-10,   0,   5,  0,  0,   0,   0, -10],
+                      [-20, -10, -10, -5, -5, -10, -10, -20]],
+                    
+            'King': [[-30, -40, -40, -50, -50, -40, -40, -30],
+                     [-30, -40, -40, -50, -50, -40, -40, -30],
+                     [-30, -40, -40, -50, -50, -40, -40, -30],
+                     [-30, -40, -40, -50, -50, -40, -40, -30],  // PST for King Piece
+                     [-20, -30, -30, -40, -40, -30, -30, -20],
+                     [-10, -20, -20, -20, -20, -20, -20, -10],
+                     [ 20,  20,   0,   0,   0,   0,  20,  20],
+                     [ 20,  30,  10,   0,   0,  10,  30,  20]]
+};
 
-    //Check the piece behind the pawn
-    switch (color) {
-        case "W":
-            remainingPieces["W"].forEach((piece) => {
-                if (piece.name.includes("Pawn") && piece.position.y > 1) {
-                    if (piece.attacks.length > 0) {
-                        count++;
-                    }
-                }
-            })
-            break;
+// To modify the Piece Value 
+export function modifyPieceValue(piece: Piece) {
 
-        case "B":
-            remainingPieces["B"].forEach((piece) => {
-                if (piece.name.includes("Pawn") && piece.position.y < 7) {
-                    if (piece.attacks.length > 0) {
-                        count++;
-                    }
-                }
-            })
-            break;
+    let color = piece.color;
+
+    // Check if the piece is a white piece or a black piece
+    if (color === 'W') { // White Piece (Normal setting the piece value)
+        
+        piece.setValue(pst[piece.name][piece.position.y][piece.position.x]);
+    
+    } else { //Black Piece (The whole PST will be flipped upside down due to the black perspective, so 7-piece.position.y is used here to flip the y level)
+
+        piece.setValue(pst[piece.name][7-piece.position.y][piece.position.x]);
     }
-
-    return count;
-}
-
-// Center Distance Calculation
-function centerDistance(piecePosition: Position): Array<number> {
-    let center: Array<Array<number>> = [[4, 4], [4, 5], [5, 4], [5, 5]];
-    let distanceArray: Array<number> = [0, 0, 0, 0];
-
-    for (let i = 0; i < 4; i++) {
-        distanceArray[i] = Math.sqrt(Math.pow(((piecePosition.x + 1) - center[i][0]), 2) + Math.pow(((piecePosition.y + 1) - center[i][1]), 2));
-    }
-
-    return distanceArray;
-}
-
-// Piece Value Comparison (Attacks)
-function pieceComparison(board: Array<Array<Piece>>, attackingPiece: Piece): number {
-    let value: number = 0;
-
-    switch (attackingPiece.name) {
-        case "Pawn":
-            value = 1;
-            break;
-
-        case "Knight":
-            value = 3;
-            break;
-
-        case "Bishop":
-            value = 3;
-            break;
-
-        case "Rook":
-            value = 5;
-            break;
-
-        case "Queen":
-            value = 9;
-            break;
-    }
-
-    attackingPiece.attacks.forEach((attackMove) => {
-        switch (board[attackMove.y][attackMove.x].name) {
-            case "Pawn":
-                value += 1;
-                break;
-
-            case "Knight":
-                value += 3;
-                break;
-
-            case "Bishop":
-                value += 3;
-                break;
-
-            case "Rook":
-                value += 5;
-                break;
-
-            case "Queen":
-                value += 9;
-                break;
-        }
-    })
-
-    return value;
 }
 
 // Evaluation function
-function boardEvaluation(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }): number {
-    let finalEvaluation: number = 0, remainingPieceEvaluation: number = 0, pawnCenterControlEvaluation: number = 0, attackingPieceEvaluation: number = 0;
+function boardEvaluation(remainingPieces: {[key: string]: Array<Piece>}):number {
 
-    //Calculating remaining piece evaluation
-    let blackRemaining: number = 0, whiteRemaining: number = 0;
-
-    remainingPieces["W"].forEach((piece) => {
-        switch (piece.name) {
+    let finalEvaluation:number = 0, 
+        remainingPieceEvaluation:number = 0, whiteRemaining:number = 0, blackRemaining:number = 0,
+        placementEvaluation:number = 0, whitePlacement:number = 0, blackPlacement:number = 0;
+    
+    // Remaining Piece and Piece Placement Evaluation
+    remainingPieces["W"].forEach((piece) => {  //ForEach loop to loop through whole remainingPieces["W"] array
+        switch(piece.name) {
             case "Pawn":
                 whiteRemaining += 1;
+                whitePlacement += piece.value;
                 break;
-
-            case "Knight": //Knight
+            
+            case "Knight":
                 whiteRemaining += 3;
+                whitePlacement += piece.value;
                 break;
 
-            case "Bishop": //Bishop
+            case "Bishop":
                 whiteRemaining += 3;
+                whitePlacement += piece.value;
                 break;
 
-            case "Rook": //Rook
+            case "Rook":
                 whiteRemaining += 5;
+                whitePlacement += piece.value;
                 break;
 
-            case "Queen": //Queen
+            case "Queen":
                 whiteRemaining += 9;
+                whitePlacement += piece.value;
+                break;
+            
+            case "King":
+                whiteRemaining += 900;
+                whitePlacement += piece.value;
                 break;
         }
     })
 
-    remainingPieces["B"].forEach((piece) => {
-        switch (piece.name) {
+    remainingPieces["B"].forEach((piece) => {  //ForEach loop to loop through whole remainingPieces["B"] array
+        switch(piece.name) {
             case "Pawn":
                 blackRemaining += 1;
+                blackPlacement += piece.value;
                 break;
-
-            case "Knight": //Knight
+            
+            case "Knight":
                 blackRemaining += 3;
+                blackPlacement += piece.value;
                 break;
 
-            case "Bishop": //Bishop
+            case "Bishop":
                 blackRemaining += 3;
+                blackPlacement += piece.value;
                 break;
 
-            case "Rook": //Rook
+            case "Rook":
                 blackRemaining += 5;
+                blackPlacement += piece.value;
                 break;
 
-            case "Queen": //Queen
+            case "Queen":
                 blackRemaining += 9;
+                blackPlacement += piece.value;
+                break;
+
+            case "King":
+                blackRemaining += 900;
+                blackPlacement += piece.value;
                 break;
         }
     })
 
-    remainingPieceEvaluation = (blackRemaining - doublePawnChecking(remainingPieces, "B")) - (whiteRemaining - doublePawnChecking(remainingPieces, "W"));
+    remainingPieceEvaluation = blackRemaining - whiteRemaining;
+    placementEvaluation = blackPlacement - whitePlacement;
 
-    // Calculate Pawn Center Control
-    let blackCenterControl: number = 0, whiteCenterControl: number = 0;
-
-    remainingPieces["W"].forEach((piece) => {
-        switch (piece.name) {
-            case "Pawn":
-                let pawnControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    whiteCenterControl += pawnControl[i];
-                }
-
-                whiteCenterControl = 40 - whiteCenterControl;
-
-                break;
-
-            case "Knight": //Knight
-                let knightControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    whiteCenterControl += knightControl[i];
-                }
-
-                whiteCenterControl = 50 - whiteCenterControl;
-
-                break;
-
-            case "Bishop": //Bishop
-                let bishopControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    whiteCenterControl += bishopControl[i];
-                }
-
-                whiteCenterControl = 30 - whiteCenterControl;
-
-                break;
-
-            case "Rook": //Rook
-                let rookControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    whiteCenterControl += rookControl[i];
-                }
-
-                whiteCenterControl = 37 - whiteCenterControl;
-
-                break;
-
-            case "Queen": //Queen
-                let queenControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    whiteCenterControl += queenControl[i];
-                }
-
-                whiteCenterControl = 39 - whiteCenterControl;
-
-                break;
-        }
-    })
-
-    remainingPieces["B"].forEach((piece) => {
-        switch (piece.name) {
-            case "Pawn":
-                let pawnControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    blackCenterControl += pawnControl[i];
-                }
-
-                blackCenterControl = 40 - blackCenterControl;
-
-                break;
-
-            case "Knight": //Knight
-                let knightControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    blackCenterControl += knightControl[i];
-                }
-
-                blackCenterControl = 50 - blackCenterControl;
-
-                break;
-
-            case "Bishop": //Bishop
-                let bishopControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    blackCenterControl += bishopControl[i];
-                }
-
-                blackCenterControl = 30 - blackCenterControl;
-
-                break;
-
-            case "Rook": //Rook
-                let rookControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    blackCenterControl += rookControl[i];
-                }
-
-                blackCenterControl = 37 - blackCenterControl;
-
-                break;
-
-            case "Queen": //Queen
-                let queenControl: Array<number> = centerDistance(piece.position);
-
-                for (let i = 0; i < 4; i++) {
-                    blackCenterControl += queenControl[i];
-                }
-
-                blackCenterControl = 39 - blackCenterControl;
-
-                break;
-        }
-    })
-
-    pawnCenterControlEvaluation = blackCenterControl - whiteCenterControl;
-
-    // Calculate Attacking Piece
-    let whiteAttackingValue: number = 0, blackAttackingValue: number = 0;
-
-    remainingPieces["W"].forEach((piece) => {
-        whiteAttackingValue += pieceComparison(board, piece);
-    })
-
-    remainingPieces["B"].forEach((piece) => {
-        blackAttackingValue += pieceComparison(board, piece);
-    })
-
-    attackingPieceEvaluation = blackAttackingValue - whiteAttackingValue;
-
-    finalEvaluation = remainingPieceEvaluation + pawnCenterControlEvaluation + attackingPieceEvaluation;
+    finalEvaluation = remainingPieceEvaluation + placementEvaluation;
 
     return finalEvaluation;
 }
@@ -325,45 +186,51 @@ function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
     return copiedBoard;
 };
 
-// Holding the bestBoardState
+// To hold the best board state
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
-// Best Move Function
-function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, depth: number, alpha: number, beta: number, state: number): boardWithEvaluation {
+// Best Move Function (Alpha Beta Pruning Implementation)
+function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, depth:number, alpha:number, beta:number, state:number): boardWithEvaluation {
+    
     if (depth === 0) {
-        let evaluation: number = boardEvaluation(board, remainingPieces);
 
+        let evaluation: number = boardEvaluation(remainingPieces);
+        
         return {
             "board": board,
-            "evaluation": evaluation
+            "evaluation": evaluation,
+            "alpha": alpha,
+            "beta": beta
         };
     }
 
+    // Bot State (Black Move)
     if (state === 1) {
-        remainingPieces['B'].forEach((piece) => {
 
+        remainingPieces['B'].forEach((piece) => { // Loop through whole 
+            
             let moveList: Array<Position> = piece.moves;
 
-            for (let move of moveList) {
+            for(let move of moveList){
 
                 let copyRemainingPieces = {
                     "W": remainingPieces["W"].map(piece => {
-                        let newPiece = new Piece();
-                        newPiece.fromData(piece);
-
-                        return newPiece;
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                            
+                            return newPiece;
                     }),
                     "B": remainingPieces["B"].map(piece => {
-                        let newPiece = new Piece();
-                        newPiece.fromData(piece);
-
-                        return newPiece;
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                  
+                            return newPiece;
                     })
                 };
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth - 1, alpha, beta, 0);
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 0);
 
                 let alphaHolder: number = alpha;
 
@@ -373,41 +240,52 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     break;
                 }
 
-                alpha = alphaHolder;
-                bestBoard = copyBoard(newBoard);
+                if (evaluation.beta !== Infinity && evaluation.alpha !== -Infinity) {
+                    alpha = alphaHolder;
+                    beta = evaluation.beta;
+                } else {
+                    alpha = alphaHolder;
+                }
+
+                if (depth === 3) {
+                    bestBoard = copyBoard(newBoard);
+                }
             }
         })
 
         return {
             "board": bestBoard,
-            "evaluation": alpha
+            "evaluation": alpha,
+            "alpha": alpha,
+            "beta": beta
         }
-    }
-    else {
-        remainingPieces['W'].forEach((piece) => {
+    } 
+    else { // Human State (White Move)
 
+        remainingPieces['W'].forEach((piece) => {
+        
             let moveList: Array<Position> = piece.moves;
 
-            for (let move of moveList) {
+            for(let move of moveList){
 
                 let copyRemainingPieces = {
                     "W": remainingPieces["W"].map(piece => {
-                        let newPiece = new Piece();
-                        newPiece.fromData(piece);
-
-                        return newPiece;
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                            
+                            return newPiece;
                     }),
                     "B": remainingPieces["B"].map(piece => {
-                        let newPiece = new Piece();
-                        newPiece.fromData(piece);
-
-                        return newPiece;
+                            let newPiece = new Piece();
+                            newPiece.fromData(piece);
+                  
+                            return newPiece;
                     })
                 };
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
-
-                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth - 1, alpha, beta, 1);
+                
+                let evaluation: boardWithEvaluation = bestMove(newBoard, newRemainingPieces, depth-1, alpha, beta, 1);
 
                 let betaHolder: number = beta;
 
@@ -417,14 +295,24 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     break;
                 }
 
-                beta = betaHolder;
-                bestBoard = copyBoard(newBoard);
+                if (evaluation.beta !== Infinity && evaluation.alpha !== -Infinity) {
+                    alpha = evaluation.alpha;
+                    beta = betaHolder;
+                } else {
+                    beta = betaHolder;
+                }
+
+                if (depth === 3) {
+                    bestBoard = copyBoard(newBoard);
+                }
             }
         })
 
         return {
             "board": bestBoard,
-            "evaluation": beta
+            "evaluation": beta,
+            "alpha": alpha,
+            "beta": beta
         }
     }
 }
@@ -461,16 +349,6 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     // Set the movePiece's position to the new position
     board[movePosition.y][movePosition.x].position.fromData(movePosition);
 
-    // If the moved piece is a pawn
-    if (board[movePosition.y][movePosition.x].name === "Pawn" && board[movePosition.y][movePosition.x].position.y === 7) {
-        // Get a random name for promotion
-        max = ["Bishop", "Knight", "Rook", "Queen"].length;
-        let name = ["Bishop", "Knight", "Rook", "Queen"][Math.floor(Math.random() * max)];
-        const [newBoard, newRemainingPieces] = promotePawn(name, movePosition, board, remainingPieces)
-
-        return newBoard;
-    }
-
     // let value = uniqueID();
 
     // if (value === 1) {
@@ -479,7 +357,7 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     //     board[0][4] = new Piece();
     // }*/
 
-    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 10, -99999, 99999, 1);
+    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 3, -Infinity, Infinity, 1);
     return botMove.board;
 
     //return board;

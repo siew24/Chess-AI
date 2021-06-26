@@ -38,6 +38,7 @@ export class Piece {
     private _isAttacked: boolean;
     private _moves: Array<Position>;
     private _attacks: Array<Position>;
+    private _value: number;
 
     constructor(name: string = "", color: string = "", position: Position = new Position(), empty: boolean = true) {
 
@@ -52,10 +53,12 @@ export class Piece {
         this._color = color;
         this._position = new Position();
         this._position.fromData(position);
+        this._value = 0;
         this._hasMoved = false;
         this._isAttacked = false;
         this._moves = [];
         this._attacks = [];
+        
     }
 
     get uid(): number { return this._uid; }
@@ -93,6 +96,7 @@ export class Piece {
 
         return copy;
     }
+    get value(): number { return this._value; }
 
     set position(position: Position) { this._position.fromData(position); }
 
@@ -104,6 +108,10 @@ export class Piece {
         this._hasMoved = true;
     }
 
+    setValue(value: number) {
+        this._value = value;
+    }
+
     fromData(pieceObject: Piece): void {
         this._uid = pieceObject.uid;
         this._name = pieceObject.name.slice();
@@ -113,6 +121,7 @@ export class Piece {
         this._isAttacked = pieceObject.isAttacked;
         this._moves = pieceObject.moves.slice();
         this._attacks = pieceObject.attacks.slice();
+        this._value = pieceObject.value;
     }
 
     /**
