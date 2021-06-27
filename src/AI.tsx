@@ -14,60 +14,60 @@ type boardWithEvaluation = {
 }
 
 // Piece-Square Table
-const pst: {[key: string]: Array<Array<number>>} = {
-            'Pawn': [[ 0,  0,  0,  0,  0,  0,  0,  0],
-                     [50, 50, 50, 50, 50, 50, 50, 50],
-                     [10, 10, 20, 30, 30, 20, 10, 10],
-                     [ 5,  5, 10, 25, 25, 10,  5,  5],  // PST for Pawn Piece
-                     [ 0,  0,  0, 20, 20,  0,  0,  0],
-                     [ 5, -5,-10,  0,  0,-10, -5,  5],
-                     [ 5, 10, 10,-20,-20, 10, 10,  5],
-                     [ 0,  0,  0,  0,  0,  0,  0,  0]],
-                    
-            'Knight': [[-50, -40, -30, -30, -30, -30, -40, -50],
-                       [-40, -20,   0,   0,   0,   0, -20, -40],
-                       [-30,   0,  10,  15,  15,  10,   0, -30],
-                       [-30,   5,  15,  20,  20,  15,   5, -30],    // PST for Knight Piece
-                       [-30,   0,  15,  20,  20,  15,   0, -30],
-                       [-30,   5,  10,  15,  15,  10,   5, -30],
-                       [-40, -20,   0,   5,   5,   0, -20, -40],
-                       [-50, -40, -30, -30, -30, -30, -40, -50]],
-                    
-            'Bishop': [[-20, -10, -10, -10, -10, -10, -10, -20],
-                       [-10,   0,   0,   0,   0,   0,   0, -10],
-                       [-10,   0,   0,   0,   0,   0,   0, -10],
-                       [-10,   5,   5,  10,  10,   5,   5, -10],    // PST for Bishop Piece
-                       [-10,   0,  10,  10,  10,  10,   0, -10],
-                       [-10,  10,  10,  10,  10,  10,  10, -10],
-                       [-10,   5,   0,   0,   0,   0,   5, -10],
-                       [-20, -10, -10, -10, -10, -10, -10, -20]],
-                    
-            'Rook': [[ 0,  0,  0,  0,  0,  0,  0,  0],
-                     [ 5, 10, 10, 10, 10, 10, 10,  5],
-                     [-5,  0,  0,  0,  0,  0,  0, -5],
-                     [-5,  0,  0,  0,  0,  0,  5, -5],  // PST for Rook Piece
-                     [-5,  0,  0,  0,  0,  0,  0, -5],
-                     [-5,  0,  0,  0,  0,  0,  0, -5],
-                     [-5,  0,  0,  0,  0,  0,  0, -5],
-                     [ 0,  0,  0,  5,  5,  0,  0,  0]],
-                    
-            'Queen': [[-20, -10, -10, -5, -5, -10, -10, -20],
-                      [-10,   0,   0,  0,  0,   0,   0, -10],
-                      [-10,   0,   5,  5,  5,   5,   0, -10],
-                      [ -5,   0,   5,  5,  5,   5,   0,  -5],   // PST for Queen Piece
-                      [  0,   0,   5,  5,  5,   5,   0,  -5],
-                      [-10,   5,   5,  5,  5,   5,   0,  -5],
-                      [-10,   0,   5,  0,  0,   0,   0, -10],
-                      [-20, -10, -10, -5, -5, -10, -10, -20]],
-                    
-            'King': [[-30, -40, -40, -50, -50, -40, -40, -30],
-                     [-30, -40, -40, -50, -50, -40, -40, -30],
-                     [-30, -40, -40, -50, -50, -40, -40, -30],
-                     [-30, -40, -40, -50, -50, -40, -40, -30],  // PST for King Piece
-                     [-20, -30, -30, -40, -40, -30, -30, -20],
-                     [-10, -20, -20, -20, -20, -20, -20, -10],
-                     [ 20,  20,   0,   0,   0,   0,  20,  20],
-                     [ 20,  30,  10,   0,   0,  10,  30,  20]]
+const pst: { [key: string]: Array<Array<number>> } = {
+    'Pawn': [[0, 0, 0, 0, 0, 0, 0, 0],
+    [50, 50, 50, 50, 50, 50, 50, 50],
+    [10, 10, 20, 30, 30, 20, 10, 10],
+    [5, 5, 10, 25, 25, 10, 5, 5],  // PST for Pawn Piece
+    [0, 0, 0, 20, 20, 0, 0, 0],
+    [5, -5, -10, 0, 0, -10, -5, 5],
+    [5, 10, 10, -20, -20, 10, 10, 5],
+    [0, 0, 0, 0, 0, 0, 0, 0]],
+
+    'Knight': [[-50, -40, -30, -30, -30, -30, -40, -50],
+    [-40, -20, 0, 0, 0, 0, -20, -40],
+    [-30, 0, 10, 15, 15, 10, 0, -30],
+    [-30, 5, 15, 20, 20, 15, 5, -30],    // PST for Knight Piece
+    [-30, 0, 15, 20, 20, 15, 0, -30],
+    [-30, 5, 10, 15, 15, 10, 5, -30],
+    [-40, -20, 0, 5, 5, 0, -20, -40],
+    [-50, -40, -30, -30, -30, -30, -40, -50]],
+
+    'Bishop': [[-20, -10, -10, -10, -10, -10, -10, -20],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 5, 5, 10, 10, 5, 5, -10],    // PST for Bishop Piece
+    [-10, 0, 10, 10, 10, 10, 0, -10],
+    [-10, 10, 10, 10, 10, 10, 10, -10],
+    [-10, 5, 0, 0, 0, 0, 5, -10],
+    [-20, -10, -10, -10, -10, -10, -10, -20]],
+
+    'Rook': [[0, 0, 0, 0, 0, 0, 0, 0],
+    [5, 10, 10, 10, 10, 10, 10, 5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 5, -5],  // PST for Rook Piece
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [-5, 0, 0, 0, 0, 0, 0, -5],
+    [0, 0, 0, 5, 5, 0, 0, 0]],
+
+    'Queen': [[-20, -10, -10, -5, -5, -10, -10, -20],
+    [-10, 0, 0, 0, 0, 0, 0, -10],
+    [-10, 0, 5, 5, 5, 5, 0, -10],
+    [-5, 0, 5, 5, 5, 5, 0, -5],   // PST for Queen Piece
+    [0, 0, 5, 5, 5, 5, 0, -5],
+    [-10, 5, 5, 5, 5, 5, 0, -5],
+    [-10, 0, 5, 0, 0, 0, 0, -10],
+    [-20, -10, -10, -5, -5, -10, -10, -20]],
+
+    'King': [[-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],
+    [-30, -40, -40, -50, -50, -40, -40, -30],  // PST for King Piece
+    [-20, -30, -30, -40, -40, -30, -30, -20],
+    [-10, -20, -20, -20, -20, -20, -20, -10],
+    [20, 20, 0, 0, 0, 0, 20, 20],
+    [20, 30, 10, 0, 0, 10, 30, 20]]
 };
 
 // To modify the Piece Value 
@@ -77,30 +77,30 @@ export function modifyPieceValue(piece: Piece) {
 
     // Check if the piece is a white piece or a black piece
     if (color === 'W') { // White Piece (Normal setting the piece value)
-        
+
         piece.setValue(pst[piece.name][piece.position.y][piece.position.x]);
-    
+
     } else { //Black Piece (The whole PST will be flipped upside down due to the black perspective, so 7-piece.position.y is used here to flip the y level)
 
-        piece.setValue(pst[piece.name][7-piece.position.y][piece.position.x]);
+        piece.setValue(pst[piece.name][7 - piece.position.y][piece.position.x]);
     }
 }
 
 // Evaluation function
-function boardEvaluation(remainingPieces: {[key: string]: Array<Piece>}):number {
+function boardEvaluation(remainingPieces: { [key: string]: Array<Piece> }): number {
 
-    let finalEvaluation:number = 0, 
-        remainingPieceEvaluation:number = 0, whiteRemaining:number = 0, blackRemaining:number = 0,
-        placementEvaluation:number = 0, whitePlacement:number = 0, blackPlacement:number = 0;
-    
+    let finalEvaluation: number = 0,
+        remainingPieceEvaluation: number = 0, whiteRemaining: number = 0, blackRemaining: number = 0,
+        placementEvaluation: number = 0, whitePlacement: number = 0, blackPlacement: number = 0;
+
     // Remaining Piece and Piece Placement Evaluation
     remainingPieces["W"].forEach((piece) => {  //ForEach loop to loop through whole remainingPieces["W"] array
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 whiteRemaining += 1;
                 whitePlacement += piece.value;
                 break;
-            
+
             case "Knight":
                 whiteRemaining += 3;
                 whitePlacement += piece.value;
@@ -120,7 +120,7 @@ function boardEvaluation(remainingPieces: {[key: string]: Array<Piece>}):number 
                 whiteRemaining += 9;
                 whitePlacement += piece.value;
                 break;
-            
+
             case "King":
                 whiteRemaining += 900;
                 whitePlacement += piece.value;
@@ -129,12 +129,12 @@ function boardEvaluation(remainingPieces: {[key: string]: Array<Piece>}):number 
     })
 
     remainingPieces["B"].forEach((piece) => {  //ForEach loop to loop through whole remainingPieces["B"] array
-        switch(piece.name) {
+        switch (piece.name) {
             case "Pawn":
                 blackRemaining += 1;
                 blackPlacement += piece.value;
                 break;
-            
+
             case "Knight":
                 blackRemaining += 3;
                 blackPlacement += piece.value;
@@ -188,20 +188,20 @@ function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
 };
 
 // Copy Remaining Pieces Function
-function cloneRemainingPieces(remainingPieces: {[key: string]: Array<Piece>}): {[key: string]: Array<Piece>} {
+function cloneRemainingPieces(remainingPieces: { [key: string]: Array<Piece> }): { [key: string]: Array<Piece> } {
 
     return {
         "W": remainingPieces["W"].map(piece => {
-                let newPiece = new Piece();
-                newPiece.fromData(piece);
-                
-                return newPiece;
+            let newPiece = new Piece();
+            newPiece.fromData(piece);
+
+            return newPiece;
         }),
         "B": remainingPieces["B"].map(piece => {
-                let newPiece = new Piece();
-                newPiece.fromData(piece);
-      
-                return newPiece;
+            let newPiece = new Piece();
+            newPiece.fromData(piece);
+
+            return newPiece;
         })
     };
 
@@ -211,12 +211,12 @@ function cloneRemainingPieces(remainingPieces: {[key: string]: Array<Piece>}): {
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
 // Best Move Function (Alpha Beta Pruning Implementation)
-function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: Array<Piece>}, depth:number, alpha:number, beta:number, state:number): boardWithEvaluation {
-    
+function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, depth: number, alpha: number, beta: number, state: number): boardWithEvaluation {
+
     if (depth === 0) {
 
         let evaluation: number = boardEvaluation(remainingPieces);
-        
+
         return {
             "board": board,
             "evaluation": evaluation,
@@ -229,10 +229,10 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
     if (state === 1) {
 
         remainingPieces['B'].forEach((piece) => { // Loop through whole 
-            
+
             let moveList: Array<Position> = piece.moves;
 
-            for(let move of moveList){
+            for (let move of moveList) {
 
                 let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
@@ -241,7 +241,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                 let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
 
                 if (newBoard[move.y][move.x].name === "Pawn" && move.y === 7) {
-                    
+
                     let evaluationHold = -Infinity;
 
                     ["Bishop", "Knight", "Rook", "Queen"].forEach((promotion) => {
@@ -257,7 +257,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                     })
                 }
 
-                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth-1, alpha, beta, 0);
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, 0);
 
                 let alphaHolder: number = alpha;
 
@@ -286,14 +286,14 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
             "alpha": alpha,
             "beta": beta
         }
-    } 
+    }
     else { // Human State (White Move)
 
         remainingPieces['W'].forEach((piece) => {
-        
+
             let moveList: Array<Position> = piece.moves;
 
-            for(let move of moveList){
+            for (let move of moveList) {
 
                 let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
@@ -302,7 +302,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                 let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
 
                 if (newBoard[move.y][move.x].name === "Pawn" && move.y === 0) {
-                    
+
                     let evaluationHold = Infinity;
 
                     ["Bishop", "Knight", "Rook", "Queen"].forEach((promotion) => {
@@ -317,8 +317,8 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: {[key: string]: A
                         }
                     })
                 }
-                
-                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth-1, alpha, beta, 1);
+
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, 1);
 
                 let betaHolder: number = beta;
 

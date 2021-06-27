@@ -1,3 +1,4 @@
+import { modifyPieceValue } from './AI';
 import { handleChessMovement } from './board events/chess-movement';
 
 export class Position {
@@ -40,12 +41,6 @@ export class Piece {
 
     constructor(name: string = "", color: string = "", position: Position = new Position(), empty: boolean = true) {
 
-        // If the piece serves as an empty piece,
-        // we need to invalidate this piece by setting -1
-        if (!empty)
-            this._uid = Piece._uid++;
-        else
-            this._uid = -1;
 
         this._name = name;
         this._color = color;
@@ -56,7 +51,16 @@ export class Piece {
         this._isAttacked = false;
         this._moves = [];
         this._attacks = [];
-        
+
+        // If the piece serves as an empty piece,
+        // we need to invalidate this piece by setting -1
+        if (!empty) {
+            this._uid = Piece._uid++;
+            this.evaluate();
+        }
+        else
+            this._uid = -1;
+
     }
 
     get uid(): number { return this._uid; }
@@ -96,11 +100,26 @@ export class Piece {
     }
     get value(): number { return this._value; }
 
-    set position(position: Position) { this._position.fromData(position); }
+    set position(position: Position) {
+        this._position.fromData(position);
+        // A new position means a new value for the piece
+        this.evaluate();
+    }
 
     set attacked(value: boolean) { this._isAttacked = value; }
 
-    promote(name: string) { this._name = name; }
+    promote(name: string) {
+        this._name = name;
+        // Promoting a Pawn also means a new value
+        this.evaluate();
+    }
+
+    /**
+     * Evaluates the current piece value based on position and name
+     */
+    private evaluate() {
+        modifyPieceValue(this);
+    }
 
     setMoved() {
         this._hasMoved = true;
