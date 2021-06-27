@@ -1,4 +1,4 @@
-import { modifyPieceValue } from './AI';
+import { modifyPieceValue } from './pst';
 import { handleChessMovement } from './board events/chess-movement';
 
 export class Position {

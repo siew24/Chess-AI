@@ -4,6 +4,9 @@ import { Piece, Position } from "./piece";
 
 // A file which how the AI should interact with the game
 
+// Control the depth of the algorithm
+let depthLimit = 3;
+
 
 // Custom type to return board, evaluation, alpha and beta value for each state
 type boardWithEvaluation = {
@@ -11,79 +14,6 @@ type boardWithEvaluation = {
     evaluation: number,
     alpha: number,
     beta: number
-}
-
-// Piece-Square Table
-const pst: { [key: string]: Array<Array<number>> } = {
-    'Pawn': [[0, 0, 0, 0, 0, 0, 0, 0],
-    [50, 50, 50, 50, 50, 50, 50, 50],
-    [10, 10, 20, 30, 30, 20, 10, 10],
-    [5, 5, 10, 25, 25, 10, 5, 5],  // PST for Pawn Piece
-    [0, 0, 0, 20, 20, 0, 0, 0],
-    [5, -5, -10, 0, 0, -10, -5, 5],
-    [5, 10, 10, -20, -20, 10, 10, 5],
-    [0, 0, 0, 0, 0, 0, 0, 0]],
-
-    'Knight': [[-50, -40, -30, -30, -30, -30, -40, -50],
-    [-40, -20, 0, 0, 0, 0, -20, -40],
-    [-30, 0, 10, 15, 15, 10, 0, -30],
-    [-30, 5, 15, 20, 20, 15, 5, -30],    // PST for Knight Piece
-    [-30, 0, 15, 20, 20, 15, 0, -30],
-    [-30, 5, 10, 15, 15, 10, 5, -30],
-    [-40, -20, 0, 5, 5, 0, -20, -40],
-    [-50, -40, -30, -30, -30, -30, -40, -50]],
-
-    'Bishop': [[-20, -10, -10, -10, -10, -10, -10, -20],
-    [-10, 0, 0, 0, 0, 0, 0, -10],
-    [-10, 0, 0, 0, 0, 0, 0, -10],
-    [-10, 5, 5, 10, 10, 5, 5, -10],    // PST for Bishop Piece
-    [-10, 0, 10, 10, 10, 10, 0, -10],
-    [-10, 10, 10, 10, 10, 10, 10, -10],
-    [-10, 5, 0, 0, 0, 0, 5, -10],
-    [-20, -10, -10, -10, -10, -10, -10, -20]],
-
-    'Rook': [[0, 0, 0, 0, 0, 0, 0, 0],
-    [5, 10, 10, 10, 10, 10, 10, 5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 5, -5],  // PST for Rook Piece
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [-5, 0, 0, 0, 0, 0, 0, -5],
-    [0, 0, 0, 5, 5, 0, 0, 0]],
-
-    'Queen': [[-20, -10, -10, -5, -5, -10, -10, -20],
-    [-10, 0, 0, 0, 0, 0, 0, -10],
-    [-10, 0, 5, 5, 5, 5, 0, -10],
-    [-5, 0, 5, 5, 5, 5, 0, -5],   // PST for Queen Piece
-    [0, 0, 5, 5, 5, 5, 0, -5],
-    [-10, 5, 5, 5, 5, 5, 0, -5],
-    [-10, 0, 5, 0, 0, 0, 0, -10],
-    [-20, -10, -10, -5, -5, -10, -10, -20]],
-
-    'King': [[-30, -40, -40, -50, -50, -40, -40, -30],
-    [-30, -40, -40, -50, -50, -40, -40, -30],
-    [-30, -40, -40, -50, -50, -40, -40, -30],
-    [-30, -40, -40, -50, -50, -40, -40, -30],  // PST for King Piece
-    [-20, -30, -30, -40, -40, -30, -30, -20],
-    [-10, -20, -20, -20, -20, -20, -20, -10],
-    [20, 20, 0, 0, 0, 0, 20, 20],
-    [20, 30, 10, 0, 0, 10, 30, 20]]
-};
-
-// To modify the Piece Value 
-export function modifyPieceValue(piece: Piece) {
-
-    let color = piece.color;
-
-    // Check if the piece is a white piece or a black piece
-    if (color === 'W') { // White Piece (Normal setting the piece value)
-
-        piece.setValue(pst[piece.name][piece.position.y][piece.position.x]);
-
-    } else { //Black Piece (The whole PST will be flipped upside down due to the black perspective, so 7-piece.position.y is used here to flip the y level)
-
-        piece.setValue(pst[piece.name][7 - piece.position.y][piece.position.x]);
-    }
 }
 
 // Evaluation function
@@ -238,7 +168,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
+                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(newRemainingPieces);
 
                 if (newBoard[move.y][move.x].name === "Pawn" && move.y === 7) {
 
@@ -267,14 +197,9 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     break;
                 }
 
-                if (evaluation.beta !== Infinity && evaluation.alpha !== -Infinity) {
-                    alpha = alphaHolder;
-                    beta = evaluation.beta;
-                } else {
-                    alpha = alphaHolder;
-                }
-
-                if (depth === 3) {
+                alpha = alphaHolder;
+                
+                if (depth === depthLimit) {
                     bestBoard = copyBoard(returnBoard);
                 }
             }
@@ -299,7 +224,7 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
 
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
-                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(copyRemainingPieces);
+                let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(newRemainingPieces);
 
                 if (newBoard[move.y][move.x].name === "Pawn" && move.y === 0) {
 
@@ -328,14 +253,9 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     break;
                 }
 
-                if (evaluation.beta !== Infinity && evaluation.alpha !== -Infinity) {
-                    alpha = evaluation.alpha;
-                    beta = betaHolder;
-                } else {
-                    beta = betaHolder;
-                }
+                beta = betaHolder;
 
-                if (depth === 3) {
+                if (depth === depthLimit) {
                     bestBoard = copyBoard(returnBoard);
                 }
             }
@@ -390,7 +310,7 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     //     board[0][4] = new Piece();
     // }*/
 
-    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, 3, -Infinity, Infinity, 1);
+    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, depthLimit, -Infinity, Infinity, 1);
     return botMove.board;
 
     //return board;
