@@ -7,7 +7,6 @@ import { Piece, Position } from "./piece";
 // Control the depth of the algorithm
 let depthLimit = 3;
 
-
 // Custom type to return board, evaluation, alpha and beta value for each state
 type boardWithEvaluation = {
     board: Array<Array<Piece>>,
@@ -100,6 +99,66 @@ function boardEvaluation(remainingPieces: { [key: string]: Array<Piece> }): numb
     return finalEvaluation;
 }
 
+// Attacking Move Evaluation
+function attackEvaluation(board: Array<Array<Piece>>, piece: Piece, move: Position): number {
+
+    let attackValue = 0;
+
+    switch (piece.name) {
+        case "Pawn":
+            attackValue += 1;
+            break;
+
+        case "Knight":
+            attackValue += 3;
+            break;
+
+        case "Bishop":
+            attackValue += 3;
+            break;
+
+        case "Rook":
+            attackValue += 5;
+            break;
+
+        case "Queen":
+            attackValue += 9;
+            break;
+
+        case "King":
+            attackValue += 900;
+            break;
+    }
+
+    switch (board[move.y][move.x].name) {
+        case "Pawn":
+            attackValue += 1;
+            break;
+
+        case "Knight":
+            attackValue += 3;
+            break;
+
+        case "Bishop":
+            attackValue += 3;
+            break;
+
+        case "Rook":
+            attackValue += 5;
+            break;
+
+        case "Queen":
+            attackValue += 9;
+            break;
+
+        case "King":
+            attackValue += 900;
+            break;
+    }
+
+    return attackValue;
+}
+
 // Copy Board Function
 function copyBoard(board: Array<Array<Piece>>): Array<Array<Piece>> {
 
@@ -141,7 +200,7 @@ function cloneRemainingPieces(remainingPieces: { [key: string]: Array<Piece> }):
 let bestBoard = Array<Array<Piece>>(8).fill([]).map(() => Array<Piece>(8).fill(new Piece()).map(() => new Piece()));
 
 // Best Move Function (Alpha Beta Pruning Implementation)
-function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, depth: number, alpha: number, beta: number, state: number): boardWithEvaluation {
+function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: Array<Piece> }, depth: number, alpha: number, beta: number, attackValue: number, state: number): boardWithEvaluation {
 
     if (depth === 0) {
 
@@ -166,6 +225,10 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
 
                 let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
+                if (board[move.y][move.x].name !== "") {
+                    attackValue += attackEvaluation(board, piece, move);
+                }
+
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
                 let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(newRemainingPieces);
@@ -187,11 +250,11 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     })
                 }
 
-                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, 0);
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, attackValue, 0);
 
                 let alphaHolder: number = alpha;
 
-                alphaHolder = Math.max(alphaHolder, evaluation.evaluation);
+                alphaHolder = Math.max(alphaHolder, evaluation.evaluation + attackValue);
 
                 if (beta <= alphaHolder) {
                     break;
@@ -222,6 +285,10 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
 
                 let copyRemainingPieces = cloneRemainingPieces(remainingPieces);
 
+                if (board[move.y][move.x].name !== "") {
+                    attackValue -= attackEvaluation(board, piece, move);
+                }
+
                 const [newBoard, newRemainingPieces] = handleChessMovement(piece, move, copyBoard(board), copyRemainingPieces);
 
                 let returnBoard = copyBoard(newBoard), returnRemainingPieces = cloneRemainingPieces(newRemainingPieces);
@@ -243,11 +310,11 @@ function bestMove(board: Array<Array<Piece>>, remainingPieces: { [key: string]: 
                     })
                 }
 
-                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, 1);
+                let evaluation: boardWithEvaluation = bestMove(returnBoard, returnRemainingPieces, depth - 1, alpha, beta, attackValue, 1);
 
                 let betaHolder: number = beta;
 
-                betaHolder = Math.min(betaHolder, evaluation.evaluation);
+                betaHolder = Math.min(betaHolder, evaluation.evaluation - attackValue);
 
                 if (betaHolder <= alpha) {
                     break;
@@ -310,7 +377,7 @@ export function doSomethingHere(board: Array<Array<Piece>>, remainingPieces: { [
     //     board[0][4] = new Piece();
     // }*/
 
-    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, depthLimit, -Infinity, Infinity, 1);
+    let botMove: boardWithEvaluation = bestMove(board, remainingPieces, depthLimit, -Infinity, Infinity, 0, 1);
     return botMove.board;
 
     //return board;
